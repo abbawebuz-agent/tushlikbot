@@ -5,20 +5,17 @@ from loader import dp, bot
 from keyboards.inline.menu_button import *
 import pandas as pd
 from utils.db_api.database import *
-from aiogram.utils.deep_linking import decode_payload
 from data import config
 
-
 channel_id = config.CHANNEL_ID
+uzoman_channel_id = config.UZOMAN_CHANNEL_ID
 
 
 @dp.message_handler(commands=["start"])
 async def handler(message: types.Message):
-    # link = await get_start_link(f'{message.from_user.id}', encode=True)
-    # await message.answer(link)
+    print(message.get_args())
     args = message.get_args()
-    payload = decode_payload(args)
-    if payload != '':
+    if args != '':
         user_id = message.from_user.id
         user = await get_employee(user_id)
         if user is None:
@@ -28,7 +25,9 @@ async def handler(message: types.Message):
             soni = await check_count(cupon)
             if cupon is not None:
                 await message.answer('Siz kupondan foydalandizngiz!')
-                await bot.send_message(chat_id=channel_id, text=f"{user.name} - talondan foydalandi.")
+                await bot.send_message(
+                    chat_id=channel_id if args != "uzoman" else uzoman_channel_id,
+                    text=f"{user.name} - talondan foydalandi.")
             else:
                 await message.answer('Siz kupondan bugun 2-marta ✌️ foydalanmoqchisiz. Afsuski buning iloji yo\'q')
             if soni == 100:
@@ -44,14 +43,14 @@ async def handler(message: types.Message):
                     names.append(emp.name)
                     counts.append(count)
                 df = pd.DataFrame({'Sana': f"{cupons[0].date.year}/{cupons[0].date.month}",
-                                        'Xodim': names,
-                                        'Soni': counts})
-                df.to_excel('./xisobot.xlsx') 
+                                   'Xodim': names,
+                                   'Soni': counts})
+                df.to_excel('./xisobot.xlsx')
                 doc = open('./xisobot.xlsx', 'rb')
                 await bot.send_document(document=doc, chat_id=channel_id, caption=f"Bu {soni} - talon")
                 for i in cupons:
                     i.checked = True
-                    i.save()        
+                    i.save()
     else:
         await message.answer(f'⚠️ Iltimos botdan qr kod orqali foydalaning 📲')
 
@@ -72,7 +71,7 @@ async def handler(message: types.Message, state: FSMContext):
 @dp.message_handler(lambda message: message.text in ['Xodim qo\'shish'], state='*')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
-    await message.answer('Xodim user_id sini jo\'nating', reply_markup=markup)   
+    await message.answer('Xodim user_id sini jo\'nating', reply_markup=markup)
     await state.set_state('get_id')
 
 
@@ -109,12 +108,12 @@ async def handler(message: types.Message, state: FSMContext):
         names.append(emp.name)
         counts.append(count)
     df = pd.DataFrame({'Sana': date.today(),
-                           'Xodim': names,
-                           'Soni': counts})
-    df.to_excel('./xisobot.xlsx') 
-    
-    doc = open('./xisobot.xlsx', 'rb')   
-    await message.answer_document(document=doc, caption=f"Bugun {len(cupons)}")             
+                       'Xodim': names,
+                       'Soni': counts})
+    df.to_excel('./xisobot.xlsx')
+
+    doc = open('./xisobot.xlsx', 'rb')
+    await message.answer_document(document=doc, caption=f"Bugun {len(cupons)}")
 
 
 @dp.message_handler(lambda message: message.text in ["Oylik ro'yxat"], state='*')
@@ -131,16 +130,16 @@ async def handler(message: types.Message, state: FSMContext):
         names.append(emp.name)
         counts.append(count)
     df = pd.DataFrame({'Sana': f"{date.today().year}/{date.today().month}",
-                           'Xodim': names,
-                           'Soni': counts})
-    df.to_excel('./xisobot.xlsx') 
-    
-    doc = open('./xisobot.xlsx', 'rb')   
+                       'Xodim': names,
+                       'Soni': counts})
+    df.to_excel('./xisobot.xlsx')
+
+    doc = open('./xisobot.xlsx', 'rb')
     await message.answer_document(document=doc, caption=f"Ushbu oy {len(cupons)} ta")
-  
+
 
 @dp.message_handler(lambda message: message.text in ["Ma'lum oy uchun xisobot"], state='*')
-async def handler(message: types.Message, state: FSMContext):  
+async def handler(message: types.Message, state: FSMContext):
     years = []
     orders = await get_cupons()
     for order in orders:
@@ -167,12 +166,12 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
         await state.update_data(year=data)
         await state.set_state('get_month_')
     else:
-        await call.message.delete()   
+        await call.message.delete()
         await bot.send_message(chat_id=call.from_user.id, text=f".", reply_markup=ReplyKeyboardRemove())
         markup = await menu_buutin()
         await state.finish()
         await bot.send_message(chat_id=call.from_user.id, text='Kerakli buyruqni tanlang 👇', reply_markup=markup)
-        
+
 
 @dp.callback_query_handler(state="get_month_")
 async def get_year(call: types.CallbackQuery, state: FSMContext):
@@ -195,12 +194,13 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
             names.append(emp.name)
             counts.append(count)
         df = pd.DataFrame({'Sana': f"{cupons[0].date.today().year}/{cupons[0].date.today().month}",
-                                'Xodim': names,
-                                'Soni': counts})
-        df.to_excel('./xisobot.xlsx') 
+                           'Xodim': names,
+                           'Soni': counts})
+        df.to_excel('./xisobot.xlsx')
         doc = open('./xisobot.xlsx', 'rb')
-        await call.message.delete()   
-        await bot.send_document(chat_id=call.from_user.id, document=doc, caption=f"Ushbu oyda {len(cupons)} ta", reply_markup=ReplyKeyboardRemove())
+        await call.message.delete()
+        await bot.send_document(chat_id=call.from_user.id, document=doc, caption=f"Ushbu oyda {len(cupons)} ta",
+                                reply_markup=ReplyKeyboardRemove())
         markup = await menu_buutin()
         await bot.send_message(chat_id=call.from_user.id, text='Kerakli buyruqni tanlang 👇', reply_markup=markup)
         await state.finish()
