@@ -47,10 +47,10 @@ async def file_back():
 
 async def menu_buutin():
     keyboard = ReplyKeyboardMarkup(one_time_keyboard=True)
-    key1 = KeyboardButton(text=" Xodim qo'shish")
-    key2 = KeyboardButton(text="Bugungi ro'yxat")
-    key3 = KeyboardButton(text="Oylik ro'yxat")
-    key4 = KeyboardButton(text="Ma'lum oy uchun xisobot")
+    key1 = KeyboardButton(text="Add user")
+    key2 = KeyboardButton(text="Current list")
+    key3 = KeyboardButton(text="Monthly list")
+    key4 = KeyboardButton(text="Choose date")
     keyboard.add(key1, key2)
     keyboard.add(key3, key4)
     keyboard.resize_keyboard = True

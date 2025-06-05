@@ -55,7 +55,7 @@ async def handler(message: types.Message):
         await message.answer(f'⚠️ Iltimos botdan qr kod orqali foydalaning 📲')
 
 
-@dp.message_handler(lambda message: message.text in ['11'], state='*')
+@dp.message_handler(lambda message: message.text in ['kairat'], state='*')
 async def handler(message: types.Message):
     markup = await menu_buutin()
     await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)
@@ -68,7 +68,7 @@ async def handler(message: types.Message, state: FSMContext):
     await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)
 
 
-@dp.message_handler(lambda message: message.text in ['Xodim qo\'shish'], state='*')
+@dp.message_handler(lambda message: message.text in ['Add user'], state='*')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
     await message.answer('Xodim user_id sini jo\'nating', reply_markup=markup)
@@ -94,7 +94,7 @@ async def handler(message: types.Message, state: FSMContext):
     await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)
 
 
-@dp.message_handler(lambda message: message.text in ["Bugungi ro'yxat"], state='*')
+@dp.message_handler(lambda message: message.text in ["Current list"], state='*')
 async def handler(message: types.Message, state: FSMContext):
     cupons = await list_today()
     emps = await get_employees()
@@ -116,7 +116,7 @@ async def handler(message: types.Message, state: FSMContext):
     await message.answer_document(document=doc, caption=f"Bugun {len(cupons)}")
 
 
-@dp.message_handler(lambda message: message.text in ["Oylik ro'yxat"], state='*')
+@dp.message_handler(lambda message: message.text in ["Monthly list"], state='*')
 async def handler(message: types.Message, state: FSMContext):
     cupons = await list_this_month()
     emps = await get_employees()
@@ -138,7 +138,7 @@ async def handler(message: types.Message, state: FSMContext):
     await message.answer_document(document=doc, caption=f"Ushbu oy {len(cupons)} ta")
 
 
-@dp.message_handler(lambda message: message.text in ["Ma'lum oy uchun xisobot"], state='*')
+@dp.message_handler(lambda message: message.text in ["Choose date"], state='*')
 async def handler(message: types.Message, state: FSMContext):
     years = []
     orders = await get_cupons()
