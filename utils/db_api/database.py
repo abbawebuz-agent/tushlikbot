@@ -27,8 +27,8 @@ def get_employee(user_id, organization_id: Optional[int] = None):
     try:
         qs = Employee.objects.filter(user_id=user_id)
         if organization_id is not None:
-            qs = qs.filter(organization_id=organization_id)
-        return qs.first()
+            qs = qs.filter(organizations__id=organization_id)
+        return qs.distinct().first()
     except:
         return None
 
@@ -36,14 +36,11 @@ def get_employee(user_id, organization_id: Optional[int] = None):
 @sync_to_async
 def add_employee(user_id, full_name, organization_id: Optional[int] = None):
     try:
+        emp = Employee.objects.create(user_id=user_id, name=full_name)
         if organization_id is not None:
-            emp = Employee.objects.create(
-                user_id=user_id,
-                name=full_name,
-                organization_id=organization_id,
-            )
-        else:
-            emp = Employee.objects.create(user_id=user_id, name=full_name)
+            emp.organizations.add(organization_id)
+            emp.active_organization_id = organization_id
+            emp.save(update_fields=["active_organization"])
         return emp
     except Exception as exx:
         print(exx)
@@ -51,9 +48,25 @@ def add_employee(user_id, full_name, organization_id: Optional[int] = None):
 
 
 @sync_to_async
+def set_employee_active_organization(user_id: int, organization_id: Optional[int]):
+    try:
+        if organization_id is None:
+            return None
+        emp = Employee.objects.filter(user_id=user_id).first()
+        if emp is None:
+            return None
+        emp.organizations.add(organization_id)
+        emp.active_organization_id = organization_id
+        emp.save(update_fields=["active_organization"])
+        return emp
+    except Exception:
+        return None
+
+
+@sync_to_async
 def add_coupon(user_id, organization_id: Optional[int] = None):
     if organization_id is not None:
-        user = Employee.objects.filter(user_id=user_id, organization_id=organization_id).first()
+        user = Employee.objects.filter(user_id=user_id, organizations__id=organization_id).distinct().first()
     else:
         user = Employee.objects.filter(user_id=user_id).first()
     try:
@@ -92,8 +105,8 @@ def list_today(organization_id: Optional[int] = None) -> List[Cupon]:
 def get_employees(organization_id: Optional[int] = None) -> List[Employee]:
     qs = Employee.objects.all()
     if organization_id is not None:
-        qs = qs.filter(organization_id=organization_id)
-    return qs.all()
+        qs = qs.filter(organizations__id=organization_id)
+    return qs.distinct().all()
     
     
 @sync_to_async

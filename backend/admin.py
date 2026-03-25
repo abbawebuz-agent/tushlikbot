@@ -21,12 +21,19 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ("id", "name", "user_id", "organization")
-    list_filter = ("organization",)
-    search_fields = ("name", "user_id", "organization__name", "organization__start_code")
-    ordering = ("organization", "name", "id")
-    autocomplete_fields = ("organization",)
-    list_select_related = ("organization",)
+    list_display = ("id", "name", "user_id", "active_organization")
+    list_filter = ("active_organization", "organizations")
+    search_fields = (
+        "name",
+        "user_id",
+        "active_organization__name",
+        "active_organization__start_code",
+        "organizations__name",
+        "organizations__start_code",
+    )
+    ordering = ("name", "id")
+    autocomplete_fields = ("active_organization", "organizations")
+    list_select_related = ("active_organization",)
 
 
 @admin.register(Cupon)

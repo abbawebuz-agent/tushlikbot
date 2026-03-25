@@ -22,19 +22,20 @@ class Organization(models.Model):
 
 
 class Employee(models.Model):
-    organization = models.ForeignKey(
+    organizations = models.ManyToManyField(
+        Organization,
+        blank=True,
+        related_name="employees",
+    )
+    active_organization = models.ForeignKey(
         Organization,
         null=True,
         blank=True,
-        on_delete=models.CASCADE,
-        related_name="employees",
+        on_delete=models.SET_NULL,
+        related_name="active_employees",
     )
     name = models.CharField(max_length=200, blank=True, null=True)
     user_id = models.IntegerField(null=True, blank=True)
-
-    class Meta:
-        # allow legacy rows where organization is NULL
-        unique_together = ("organization", "user_id")
 
     def __str__(self):
         return self.name or str(self.user_id)

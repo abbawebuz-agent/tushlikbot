@@ -49,6 +49,9 @@ async def handler(message: types.Message):
         await message.answer('❌ Ushbu foydalanuvchi id bilan hodim topilmadi')
         return
 
+    # Запоминаем "текущую" организацию пользователя (для меню без payload)
+    await set_employee_active_organization(user_id=user_id, organization_id=organization_id)
+
     cupon = await add_coupon(user_id=user_id, organization_id=organization_id)
     soni = await check_count(cupon, organization_id=organization_id)
 
@@ -147,7 +150,7 @@ async def handler(message: types.Message, state: FSMContext):
     data = await state.get_data()
     user_id = data['user_id']
     admin = await get_employee(message.from_user.id)
-    organization_id = admin.organization_id if admin is not None else None
+    organization_id = admin.active_organization_id if admin is not None else None
     if organization_id is None:
         await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
         return
@@ -160,7 +163,7 @@ async def handler(message: types.Message, state: FSMContext):
 @dp.message_handler(lambda message: message.text in ["Current list"], state='*')
 async def handler(message: types.Message, state: FSMContext):
     admin = await get_employee(message.from_user.id)
-    organization_id = admin.organization_id if admin is not None else None
+    organization_id = admin.active_organization_id if admin is not None else None
     if organization_id is None:
         await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
         return
@@ -187,7 +190,7 @@ async def handler(message: types.Message, state: FSMContext):
 @dp.message_handler(lambda message: message.text in ["Monthly list"], state='*')
 async def handler(message: types.Message, state: FSMContext):
     admin = await get_employee(message.from_user.id)
-    organization_id = admin.organization_id if admin is not None else None
+    organization_id = admin.active_organization_id if admin is not None else None
     if organization_id is None:
         await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
         return
@@ -215,7 +218,7 @@ async def handler(message: types.Message, state: FSMContext):
 async def handler(message: types.Message, state: FSMContext):
     years = []
     admin = await get_employee(message.from_user.id)
-    organization_id = admin.organization_id if admin is not None else None
+    organization_id = admin.active_organization_id if admin is not None else None
     if organization_id is None:
         await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
         return
@@ -235,7 +238,7 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
         date = []
         state_data = await state.get_data()
         admin = await get_employee(call.from_user.id)
-        organization_id = admin.organization_id if admin is not None else None
+        organization_id = admin.active_organization_id if admin is not None else None
         if organization_id is None:
             return
         orders = await get_cupons(organization_id=organization_id)
@@ -262,7 +265,7 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
         cupons = []
         state_data = await state.get_data()
         admin = await get_employee(call.from_user.id)
-        organization_id = admin.organization_id if admin is not None else None
+        organization_id = admin.active_organization_id if admin is not None else None
         if organization_id is None:
             return
         orders = await get_cupons(organization_id=organization_id)
@@ -301,7 +304,7 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
         await state.finish()
     else:
         admin = await get_employee(call.from_user.id)
-        organization_id = admin.organization_id if admin is not None else None
+        organization_id = admin.active_organization_id if admin is not None else None
         if organization_id is None:
             return
         orders = await get_cupons(organization_id=organization_id)
