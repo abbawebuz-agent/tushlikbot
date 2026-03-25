@@ -1,23 +1,49 @@
-from datetime import date, datetime
-from typing import List, Any
+from datetime import date
+from typing import List, Optional
+
 from asgiref.sync import sync_to_async
-from backend.admin import Employee
-from backend.models import *
+
+from backend.models import Employee, Cupon, Organization
 
 
 @sync_to_async
-def get_employee(user_id):
+def get_organization_by_start_code(start_code: str) -> Optional[Organization]:
     try:
-        user = Employee.objects.filter(user_id=user_id).first()
-        return user
+        return Organization.objects.filter(start_code=start_code).first()
+    except Exception:
+        return None
+
+
+@sync_to_async
+def get_default_organization() -> Optional[Organization]:
+    try:
+        return Organization.objects.filter(is_default=True).first() or Organization.objects.first()
+    except Exception:
+        return None
+
+
+@sync_to_async
+def get_employee(user_id, organization_id: Optional[int] = None):
+    try:
+        qs = Employee.objects.filter(user_id=user_id)
+        if organization_id is not None:
+            qs = qs.filter(organization_id=organization_id)
+        return qs.first()
     except:
         return None
 
 
 @sync_to_async
-def add_employee(user_id, full_name):
+def add_employee(user_id, full_name, organization_id: Optional[int] = None):
     try:
-        emp = Employee.objects.create(user_id=user_id, name=full_name).save()
+        if organization_id is not None:
+            emp = Employee.objects.create(
+                user_id=user_id,
+                name=full_name,
+                organization_id=organization_id,
+            )
+        else:
+            emp = Employee.objects.create(user_id=user_id, name=full_name)
         return emp
     except Exception as exx:
         print(exx)
@@ -25,16 +51,28 @@ def add_employee(user_id, full_name):
 
 
 @sync_to_async
-def add_coupon(user_id):
-    user = Employee.objects.filter(user_id=user_id).first()
+def add_coupon(user_id, organization_id: Optional[int] = None):
+    if organization_id is not None:
+        user = Employee.objects.filter(user_id=user_id, organization_id=organization_id).first()
+    else:
+        user = Employee.objects.filter(user_id=user_id).first()
     try:
         today = date.today()
-        tickets = Cupon.objects.filter(user_id=user_id, date=today).all()
+        if organization_id is not None:
+            tickets = Cupon.objects.filter(user_id=user_id, organization_id=organization_id, date=today).all()
+        else:
+            tickets = Cupon.objects.filter(user_id=user_id, date=today).all()
         if tickets:
             return None
         else:
-            ticket = Cupon.objects.create(user_id=user_id, name=user.name)
-            ticket.save()
+            if organization_id is not None:
+                ticket = Cupon.objects.create(
+                    user_id=user_id,
+                    name=user.name,
+                    organization_id=organization_id,
+                )
+            else:
+                ticket = Cupon.objects.create(user_id=user_id, name=user.name)
             return ticket.id
     except Exception as exx:
         print(exx)
@@ -42,32 +80,40 @@ def add_coupon(user_id):
 
     
 @sync_to_async
-def list_today() -> List[Cupon]:
+def list_today(organization_id: Optional[int] = None) -> List[Cupon]:
     today = date.today()
-    eps = Cupon.objects.filter(date=today).all()
-    return eps
+    qs = Cupon.objects.filter(date=today)
+    if organization_id is not None:
+        qs = qs.filter(organization_id=organization_id)
+    return qs.all()
     
     
 @sync_to_async
-def get_employees() -> List[Employee]:
-    eps = Employee.objects.all()
-    return eps
+def get_employees(organization_id: Optional[int] = None) -> List[Employee]:
+    qs = Employee.objects.all()
+    if organization_id is not None:
+        qs = qs.filter(organization_id=organization_id)
+    return qs.all()
     
     
 @sync_to_async
-def get_cupon_count(user_id):
+def get_cupon_count(user_id, organization_id: Optional[int] = None):
     today = date.today()
-    
-    cps = Cupon.objects.filter(user_id=user_id, date=today).all()
-    return len(cps)
+
+    qs = Cupon.objects.filter(user_id=user_id, date=today)
+    if organization_id is not None:
+        qs = qs.filter(organization_id=organization_id)
+    return len(qs.all())
 
  
 @sync_to_async
-def list_this_month()-> List[Cupon]:
+def list_this_month(organization_id: Optional[int] = None) -> List[Cupon]:
     month = date.today().month
     year = date.today().year
     cps = []
     eps = Cupon.objects.all()
+    if organization_id is not None:
+        eps = eps.filter(organization_id=organization_id)
     for i in eps:
         if i.date.month == month and i.date.year == year:
             cps.append(i)
@@ -75,33 +121,35 @@ def list_this_month()-> List[Cupon]:
 
 
 @sync_to_async
-def get_cupons()-> List[Cupon]:
-    eps = Cupon.objects.all()
-    return eps
+def get_cupons(organization_id: Optional[int] = None) -> List[Cupon]:
+    qs = Cupon.objects.all()
+    if organization_id is not None:
+        qs = qs.filter(organization_id=organization_id)
+    return qs.all()
 
 
 @sync_to_async
-def not_checked(id):
+def not_checked(id, organization_id: Optional[int] = None):
     try:
-        a = []
-        cupons = Cupon.objects.filter(checked=False).all()
-        for i in cupons:
-            if i.id <= id:
-                a.append(i)
-        return a
+        qs = Cupon.objects.filter(checked=False)
+        if organization_id is not None:
+            qs = qs.filter(organization_id=organization_id)
+        if id is not None:
+            qs = qs.filter(id__lte=id)
+        return list(qs)
     except:
         return None
 
 
 @sync_to_async
-def check_count(id):
+def check_count(id, organization_id: Optional[int] = None):
     try:
-        a = 0
-        cupons = Cupon.objects.filter(checked=False).all()
-        for i in cupons:
-            if id is not None and i.id <= id:
-                a += 1
-        return a
+        if id is None:
+            return 0
+        qs = Cupon.objects.filter(checked=False, id__lte=id)
+        if organization_id is not None:
+            qs = qs.filter(organization_id=organization_id)
+        return qs.count()
     except:
         return None
 

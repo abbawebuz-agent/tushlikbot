@@ -7,52 +7,110 @@ import pandas as pd
 from utils.db_api.database import *
 from data import config
 
-channel_id = config.CHANNEL_ID
-uzoman_channel_id = config.UZOMAN_CHANNEL_ID
+LEGACY_CHANNEL_ID = config.CHANNEL_ID
+LEGACY_UZOMAN_CHANNEL_ID = config.UZOMAN_CHANNEL_ID
 
 
 @dp.message_handler(commands=["start"])
 async def handler(message: types.Message):
-    print(message.get_args())
-    args = message.get_args()
-    if args != '':
-        user_id = message.from_user.id
-        user = await get_employee(user_id)
-        if user is None:
-            await message.answer('❌ Ushbu foydalanuvchi id bilan hodim topilmadi')
+    args = (message.get_args() or "").strip()
+
+    if args == "":
+        await message.answer('⚠️ Iltimos botdan qr kod orqali foydalaning 📲')
+        return
+
+    # Payload convention:
+    # - `<org_start_code>` => normal channel
+    # - `<org_start_code>:uzoman` => uzoman channel
+    # Legacy:
+    # - `uzoman` => uzoman channel for the (default) organization
+    role = "default"
+    org_code = args
+    if args == "uzoman":
+        role = "uzoman"
+        org_code = None
+    elif ":" in args:
+        maybe_code, maybe_role = args.split(":", 1)
+        org_code = maybe_code
+        if maybe_role == "uzoman":
+            role = "uzoman"
+
+    org = None
+    if org_code:
+        org = await get_organization_by_start_code(org_code)
+    if org is None:
+        org = await get_default_organization()
+
+    organization_id = org.id if org is not None else None
+
+    user_id = message.from_user.id
+    user = await get_employee(user_id, organization_id=organization_id)
+    if user is None:
+        await message.answer('❌ Ushbu foydalanuvchi id bilan hodim topilmadi')
+        return
+
+    cupon = await add_coupon(user_id=user_id, organization_id=organization_id)
+    soni = await check_count(cupon, organization_id=organization_id)
+
+    if cupon is not None:
+        await message.answer('Siz kupondan foydalandizngiz!')
+
+        if org is not None:
+            target_chat_id = org.uzoman_channel_id if role == "uzoman" and org.uzoman_channel_id is not None else org.channel_id
         else:
-            cupon = await add_coupon(user_id=message.from_user.id)
-            soni = await check_count(cupon)
-            if cupon is not None:
-                await message.answer('Siz kupondan foydalandizngiz!')
-                await bot.send_message(
-                    chat_id=channel_id if args != "uzoman" else uzoman_channel_id,
-                    text=f"{user.name} - talondan foydalandi.")
-            else:
-                await message.answer('Siz kupondan bugun 2-marta ✌️ foydalanmoqchisiz. Afsuski buning iloji yo\'q')
-            if soni == 100:
-                cupons = await not_checked(cupon)
-                emps = await get_employees()
-                names = []
-                counts = []
-                for emp in emps:
-                    count = 0
-                    for cps in cupons:
-                        if emp.user_id == cps.user_id:
-                            count += 1
-                    names.append(emp.name)
-                    counts.append(count)
-                df = pd.DataFrame({'Sana': f"{cupons[0].date.year}/{cupons[0].date.month}",
-                                   'Xodim': names,
-                                   'Soni': counts})
-                df.to_excel('./xisobot.xlsx')
-                doc = open('./xisobot.xlsx', 'rb')
-                await bot.send_document(document=doc, chat_id=channel_id, caption=f"Bu {soni} - talon")
-                for i in cupons:
-                    i.checked = True
-                    i.save()
+            target_chat_id = LEGACY_UZOMAN_CHANNEL_ID if role == "uzoman" else LEGACY_CHANNEL_ID
+
+        await bot.send_message(
+            chat_id=target_chat_id,
+            text=f"{user.name} - talondan foydalandi.",
+        )
     else:
-        await message.answer(f'⚠️ Iltimos botdan qr kod orqali foydalaning 📲')
+        await message.answer('Siz kupondan bugun 2-marta ✌️ foydalanmoqchisiz. Afsuski buning iloji yo\'q')
+
+    if soni == 100 and cupon is not None:
+        cupons = await not_checked(cupon, organization_id=organization_id)
+        emps = await get_employees(organization_id=organization_id)
+
+        if not cupons:
+            return
+
+        names = []
+        counts = []
+        for emp in emps:
+            count = 0
+            for cps in cupons:
+                if emp.user_id == cps.user_id:
+                    count += 1
+            names.append(emp.name)
+            counts.append(count)
+
+        year = cupons[0].date.year
+        month = cupons[0].date.month
+        df = pd.DataFrame(
+            {
+                "Sana": f"{year}/{month}",
+                "Xodim": names,
+                "Soni": counts,
+            }
+        )
+
+        xlsx_name = f'./xisobot_{organization_id or "legacy"}.xlsx'
+        df.to_excel(xlsx_name)
+        doc = open(xlsx_name, 'rb')
+
+        if org is not None:
+            report_chat_id = org.channel_id
+        else:
+            report_chat_id = LEGACY_CHANNEL_ID
+
+        await bot.send_document(
+            document=doc,
+            chat_id=report_chat_id,
+            caption=f"Bu {soni} - talon",
+        )
+        for i in cupons:
+            i.checked = True
+            i.save()
 
 
 @dp.message_handler(lambda message: message.text in ['kairat'], state='*')
@@ -88,7 +146,12 @@ async def handler(message: types.Message, state: FSMContext):
 async def handler(message: types.Message, state: FSMContext):
     data = await state.get_data()
     user_id = data['user_id']
-    await add_employee(user_id=user_id, full_name=message.text)
+    admin = await get_employee(message.from_user.id)
+    organization_id = admin.organization_id if admin is not None else None
+    if organization_id is None:
+        await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
+        return
+    await add_employee(user_id=user_id, full_name=message.text, organization_id=organization_id)
     await state.finish()
     markup = await menu_buutin()
     await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)
@@ -96,8 +159,13 @@ async def handler(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: message.text in ["Current list"], state='*')
 async def handler(message: types.Message, state: FSMContext):
-    cupons = await list_today()
-    emps = await get_employees()
+    admin = await get_employee(message.from_user.id)
+    organization_id = admin.organization_id if admin is not None else None
+    if organization_id is None:
+        await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
+        return
+    cupons = await list_today(organization_id=organization_id)
+    emps = await get_employees(organization_id=organization_id)
     names = []
     counts = []
     for emp in emps:
@@ -118,8 +186,13 @@ async def handler(message: types.Message, state: FSMContext):
 
 @dp.message_handler(lambda message: message.text in ["Monthly list"], state='*')
 async def handler(message: types.Message, state: FSMContext):
-    cupons = await list_this_month()
-    emps = await get_employees()
+    admin = await get_employee(message.from_user.id)
+    organization_id = admin.organization_id if admin is not None else None
+    if organization_id is None:
+        await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
+        return
+    cupons = await list_this_month(organization_id=organization_id)
+    emps = await get_employees(organization_id=organization_id)
     names = []
     counts = []
     for emp in emps:
@@ -141,7 +214,12 @@ async def handler(message: types.Message, state: FSMContext):
 @dp.message_handler(lambda message: message.text in ["Choose date"], state='*')
 async def handler(message: types.Message, state: FSMContext):
     years = []
-    orders = await get_cupons()
+    admin = await get_employee(message.from_user.id)
+    organization_id = admin.organization_id if admin is not None else None
+    if organization_id is None:
+        await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
+        return
+    orders = await get_cupons(organization_id=organization_id)
     for order in orders:
         years.append(order.date.year)
     years = list(dict.fromkeys(years))
@@ -156,7 +234,11 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
     if data != 'back_menu':
         date = []
         state_data = await state.get_data()
-        orders = await get_cupons()
+        admin = await get_employee(call.from_user.id)
+        organization_id = admin.organization_id if admin is not None else None
+        if organization_id is None:
+            return
+        orders = await get_cupons(organization_id=organization_id)
         for order in orders:
             if order.date.year == int(data):
                 date.append(order.date.month)
@@ -179,11 +261,15 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
     if data != 'back_menu':
         cupons = []
         state_data = await state.get_data()
-        orders = await get_cupons()
+        admin = await get_employee(call.from_user.id)
+        organization_id = admin.organization_id if admin is not None else None
+        if organization_id is None:
+            return
+        orders = await get_cupons(organization_id=organization_id)
         for order in orders:
             if order.date.year == int(state_data['year']) and order.date.month == int(data):
                 cupons.append(order)
-        emps = await get_employees()
+        emps = await get_employees(organization_id=organization_id)
         names = []
         counts = []
         for emp in emps:
@@ -193,11 +279,20 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
                     count += 1
             names.append(emp.name)
             counts.append(count)
-        df = pd.DataFrame({'Sana': f"{cupons[0].date.today().year}/{cupons[0].date.today().month}",
-                           'Xodim': names,
-                           'Soni': counts})
-        df.to_excel('./xisobot.xlsx')
-        doc = open('./xisobot.xlsx', 'rb')
+        if not cupons:
+            return
+
+        df = pd.DataFrame(
+            {
+                "Sana": f"{cupons[0].date.year}/{cupons[0].date.month}",
+                "Xodim": names,
+                "Soni": counts,
+            }
+        )
+
+        xlsx_name = f'./xisobot_{organization_id or "legacy"}_{state_data["year"]}_{data}.xlsx'
+        df.to_excel(xlsx_name)
+        doc = open(xlsx_name, 'rb')
         await call.message.delete()
         await bot.send_document(chat_id=call.from_user.id, document=doc, caption=f"Ushbu oyda {len(cupons)} ta",
                                 reply_markup=ReplyKeyboardRemove())
@@ -205,14 +300,14 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
         await bot.send_message(chat_id=call.from_user.id, text='Kerakli buyruqni tanlang 👇', reply_markup=markup)
         await state.finish()
     else:
-        date = []
-        state_data = await state.get_data()
-        orders = await get_cupons()
-        for order in orders:
-            if order.date.year == int(state_data['year']):
-                date.append(order.date.year)
-        date = list(dict.fromkeys(date))
-        markup = await year_keyboard(date)
+        admin = await get_employee(call.from_user.id)
+        organization_id = admin.organization_id if admin is not None else None
+        if organization_id is None:
+            return
+        orders = await get_cupons(organization_id=organization_id)
+
+        # Вернуться к выбору года для текущей организации
+        years = list(dict.fromkeys([order.date.year for order in orders if order.date is not None]))
+        markup = await year_keyboard(years)
         await call.message.edit_text(text='Kerakli yilni tanlang 👇', reply_markup=markup)
-        await state.update_data(year=data)
         await state.set_state('get_year_')
