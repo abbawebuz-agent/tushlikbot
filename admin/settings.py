@@ -14,6 +14,7 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
+    "unfold",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -22,6 +23,12 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'backend',
 ]
+
+# Unfold (modern Django admin UI)
+UNFOLD = {
+    "SITE_TITLE": os.getenv("ADMIN_SITE_TITLE", "Tushlikbot"),
+    "SITE_HEADER": os.getenv("ADMIN_SITE_HEADER", "Tushlikbot Admin"),
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

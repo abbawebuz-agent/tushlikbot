@@ -1,10 +1,11 @@
 from django.contrib import admin
+from unfold.admin import ModelAdmin
 
 from .models import Cupon, Employee, Organization
 
 
 @admin.register(Organization)
-class OrganizationAdmin(admin.ModelAdmin):
+class OrganizationAdmin(ModelAdmin):
     list_display = (
         "id",
         "name",
@@ -20,7 +21,7 @@ class OrganizationAdmin(admin.ModelAdmin):
 
 
 @admin.register(Employee)
-class EmployeeAdmin(admin.ModelAdmin):
+class EmployeeAdmin(ModelAdmin):
     list_display = ("id", "name", "user_id", "active_organization")
     list_filter = ("active_organization", "organizations")
     search_fields = (
@@ -37,7 +38,7 @@ class EmployeeAdmin(admin.ModelAdmin):
 
 
 @admin.register(Cupon)
-class CuponAdmin(admin.ModelAdmin):
+class CuponAdmin(ModelAdmin):
     list_display = ("id", "date", "checked", "name", "user_id", "organization")
     list_filter = ("organization", "checked", "date")
     search_fields = ("name", "user_id", "organization__name", "organization__start_code")
