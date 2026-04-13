@@ -1,39 +1,30 @@
 # bot/views.py
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from aiogram import Bot, Dispatcher, types
+import json
+
+from aiogram import Bot, Dispatcher
 from aiogram.types import Update
 from asgiref.sync import async_to_sync
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
 
-import asyncio
-import json
+from data import config
 from handlers import dp
 
 @csrf_exempt
-def webhook(request):
-    if request.method == 'POST':
-        json_str = request.body.decode('UTF-8')
-        json_data = json.loads(json_str)
-        update = Update.to_object(json_data)
+def webhook(request, secret: str):
+    if secret != config.WEBHOOK_SECRET:
+        return JsonResponse({"status": "not found"}, status=404)
 
-        # Set the current bot and dispatcher instances
-        Bot.set_current(dp.bot)
-        Dispatcher.set_current(dp)
+    if request.method != "POST":
+        return JsonResponse({"status": "invalid request"}, status=400)
 
-        # Ensure an active event loop is available
-        try:
-            # Try to get the existing running event loop
-            loop = asyncio.get_event_loop()
-        except RuntimeError as e:
-            print(str(e), "%$%%%%%%")
-            # Create a new event loop if none is running
-            if "no current event loop" in str(e):
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+    json_str = request.body.decode("utf-8")
+    json_data = json.loads(json_str)
+    update = Update.to_object(json_data)
 
-        # Run the async function within the loop
-        loop.run_until_complete(dp.process_update(update))
+    Bot.set_current(dp.bot)
+    Dispatcher.set_current(dp)
 
-        return JsonResponse({'status': 'ok'})
+    async_to_sync(dp.process_update)(update)
 
-    return JsonResponse({'status': 'invalid request'}, status=400)
+    return JsonResponse({"status": "ok"})

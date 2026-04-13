@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -18,12 +19,11 @@ SLEEP_TIME = .3
 ip = str(os.getenv("ip"))
 
 # webhook settings
-WEBHOOK_HOST = ip
-WEBHOOK_PATH = f'/bot/{BOT_TOKEN}'
-PORT = 5432
-WEBHOOK_URL = f"https://{WEBHOOK_HOST}:{PORT}{WEBHOOK_PATH}"
-WEBAPP_HOST = "0.0.0.0"  # or ip
-WEBAPP_PORT = 5432
+# Public base url where your external nginx terminates TLS, e.g. https://bot.example.com
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", BOT_TOKEN)
+WEBHOOK_PATH = f"/bot/webhook/{WEBHOOK_SECRET}/"
+WEBHOOK_URL = f"{PUBLIC_BASE_URL}{WEBHOOK_PATH}" if PUBLIC_BASE_URL else ""
 
 
 
