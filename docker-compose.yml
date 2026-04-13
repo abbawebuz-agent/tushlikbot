@@ -1,13 +1,26 @@
 services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: "${POSTGRES_DB:-tushlikbot}"
+      POSTGRES_USER: "${POSTGRES_USER:-tushlikbot}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-change_me}"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+
   web:
     build: .
     restart: unless-stopped
+    depends_on:
+      - db
     env_file:
       - .env
     environment:
       WEB_PORT: "8000"
+      POSTGRES_HOST: "db"
+      POSTGRES_PORT: "5432"
     volumes:
-      - sqlite_data:/app/db.sqlite3
       - static_data:/app/static
       - media_data:/app/media
 
@@ -32,7 +45,7 @@ services:
     command: ["python", "scripts/set_telegram_webhook.py"]
 
 volumes:
-  sqlite_data:
+  pg_data:
   static_data:
   media_data:
 

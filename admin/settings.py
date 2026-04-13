@@ -69,11 +69,21 @@ WSGI_APPLICATION = 'admin.wsgi.application'
 # }
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": os.getenv("DB_ENGINE", "django.db.backends.sqlite3"),
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
+
+if os.getenv("POSTGRES_HOST"):
+    DATABASES["default"] = {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("POSTGRES_DB", config.DATABASE),
+        "USER": os.getenv("POSTGRES_USER", config.PGUSER),
+        "PASSWORD": os.getenv("POSTGRES_PASSWORD", config.PGPASSWORD),
+        "HOST": os.getenv("POSTGRES_HOST"),
+        "PORT": os.getenv("POSTGRES_PORT", "5432"),
+    }
 
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators
