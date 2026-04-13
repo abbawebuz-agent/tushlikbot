@@ -11,6 +11,12 @@ DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
+# CSRF
+# Comma-separated list, e.g. "https://bot.example.com,https://admin.example.com"
+_csrf_trusted_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "").strip()
+if _csrf_trusted_origins:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_trusted_origins.split(",") if o.strip()]
+
 # Application definition
 
 INSTALLED_APPS = [
