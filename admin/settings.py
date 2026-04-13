@@ -14,8 +14,19 @@ ALLOWED_HOSTS = ['*']
 # CSRF
 # Comma-separated list, e.g. "https://bot.example.com,https://admin.example.com"
 _csrf_trusted_origins = os.getenv("CSRF_TRUSTED_ORIGINS", "").strip()
-if _csrf_trusted_origins:
-    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_trusted_origins.split(",") if o.strip()]
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in _csrf_trusted_origins.split(",") if o.strip()] if _csrf_trusted_origins else []
+
+# Helpful default for local testing (e.g. http://localhost:8080)
+if not os.getenv("PUBLIC_BASE_URL"):
+    port = os.getenv("INTERNAL_NGINX_PORT", "8080")
+    CSRF_TRUSTED_ORIGINS.extend(
+        [
+            f"http://localhost:{port}",
+            f"http://127.0.0.1:{port}",
+        ]
+    )
+
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 # Application definition
 
@@ -140,4 +151,4 @@ STATIC_ROOT = BASE_DIR / 'static'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-DEFAULT_AUTO_FIELD = 'django.db.models.AutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.AutoField"

@@ -1,7 +1,7 @@
 from django.contrib import admin
 from unfold.admin import ModelAdmin
 
-from .models import Cupon, Employee, Organization
+from .models import Cupon, Employee, Organization, Lead
 
 
 @admin.register(Organization)
@@ -45,3 +45,11 @@ class CuponAdmin(ModelAdmin):
     ordering = ("-date", "-id")
     autocomplete_fields = ("organization",)
     list_select_related = ("organization",)
+
+
+@admin.register(Lead)
+class LeadAdmin(ModelAdmin):
+    list_display = ("id", "created_at", "contact_name", "phone")
+    list_filter = ("created_at",)
+    search_fields = ("contact_name", "phone")
+    ordering = ("-created_at", "-id")

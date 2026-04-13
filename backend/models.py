@@ -58,3 +58,13 @@ class Cupon(models.Model):
         return f"{self.name} {self.date}"
 
     
+class Lead(models.Model):
+    contact_name = models.CharField(max_length=200)
+    phone = models.CharField(max_length=64)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at", "-id")
+
+    def __str__(self):
+        return f"{self.contact_name} — {self.phone}"
