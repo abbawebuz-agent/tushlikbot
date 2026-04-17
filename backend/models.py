@@ -35,7 +35,8 @@ class Employee(models.Model):
         related_name="active_employees",
     )
     name = models.CharField(max_length=200, blank=True, null=True)
-    user_id = models.IntegerField(null=True, blank=True)
+    # Telegram user ids can exceed 32-bit int (e.g. 5_000_000_000+)
+    user_id = models.BigIntegerField(null=True, blank=True)
 
     def __str__(self):
         return self.name or str(self.user_id)
@@ -49,7 +50,7 @@ class Cupon(models.Model):
         on_delete=models.CASCADE,
         related_name="cupons",
     )
-    user_id = models.IntegerField(null=True, blank=True)
+    user_id = models.BigIntegerField(null=True, blank=True)
     name = models.CharField(max_length=200, null=True, blank=True)
     date = models.DateField(auto_now_add=True, null=True)
     checked = models.BooleanField(default=False)

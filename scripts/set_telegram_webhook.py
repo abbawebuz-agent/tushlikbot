@@ -29,8 +29,22 @@ def main() -> int:
     if not token:
         print("BOT_TOKEN is required", file=sys.stderr)
         return 2
+
     if not webhook_url:
-        print("WEBHOOK_URL is required (set PUBLIC_BASE_URL in .env)", file=sys.stderr)
+        try:
+            # Prefer the same computed URL as the Django app uses:
+            # PUBLIC_BASE_URL + /bot/webhook/<WEBHOOK_SECRET>/
+            from data import config  # type: ignore
+
+            webhook_url = (config.WEBHOOK_URL or "").strip()
+        except Exception:
+            webhook_url = ""
+
+    if not webhook_url:
+        print(
+            "WEBHOOK_URL is required. Provide WEBHOOK_URL explicitly or set PUBLIC_BASE_URL and WEBHOOK_SECRET in .env",
+            file=sys.stderr,
+        )
         return 2
 
     r = request_json(
