@@ -37,6 +37,12 @@ def get_employee(user_id, organization_id: Optional[int] = None):
 def add_employee(user_id, full_name, organization_id: Optional[int] = None):
     try:
         emp = Employee.objects.create(user_id=user_id, name=full_name)
+        # Добавляем сотрудника во все существующие организации
+        org_ids = list(Organization.objects.values_list("id", flat=True))
+        if org_ids:
+            emp.organizations.add(*org_ids)
+
+        # И выставляем "активную" организацию, если она задана
         if organization_id is not None:
             emp.organizations.add(organization_id)
             emp.active_organization_id = organization_id
