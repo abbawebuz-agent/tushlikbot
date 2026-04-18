@@ -11,16 +11,15 @@ services:
     volumes:
       - pg_data:/var/lib/postgresql/data
 
-  web:
+  web:l
     build: .
-    restart: unless-stopped
+    restart: unless-stoppedl;lrdldrl
     depends_on:
-      - db
+      - dbl;d
     env_file:
-      - .env
+      - .envlsslsdl;
     environment:
-      WEB_PORT: "8000"
-      POSTGRES_HOST: "db"
+-p;eedf;lgz      POSTGRES_HOST: "db"
       POSTGRES_PORT: "5432"
     volumes:
       - static_data:/app/static
