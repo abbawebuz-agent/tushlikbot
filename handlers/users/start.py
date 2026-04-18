@@ -5,7 +5,6 @@ import os
 from aiogram import types
 from aiogram.types import ReplyKeyboardRemove
 from aiogram.dispatcher import FSMContext
-from aiogram.dispatcher.handler import SkipHandler
 from loader import dp, bot
 from keyboards.inline.menu_button import *
 import pandas as pd
@@ -184,6 +183,9 @@ async def handler(message: types.Message, state: FSMContext):
         message.from_user.id,
         message.chat.id,
     )
+    # Если предыдущий сценарий завис на каком-то state (например get_name),
+    # начинаем добавление сотрудника с чистого состояния.
+    await state.finish()
     await message.answer("Xodim user_id sini jo'nating", reply_markup=markup)
     await state.set_state('get_id')
     try:
@@ -192,24 +194,9 @@ async def handler(message: types.Message, state: FSMContext):
         logger.exception("[AddUser:entry] failed to read state")
 
 
-@dp.message_handler(content_types=types.ContentType.ANY, state='*')
+@dp.message_handler(content_types=types.ContentType.ANY, state='get_id')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
-    try:
-        current_state = await state.get_state()
-    except Exception:
-        current_state = None
-        logger.exception("[AddUser:get_id] pid=%s failed to read state", os.getpid())
-
-    # Fail-safe: sometimes state-filtered handlers don't match under webhook;
-    # handle `get_id` explicitly here.
-    if current_state != "get_id":
-        logger.info(
-            "[AddUser:get_id] pid=%s skipped because state=%s",
-            os.getpid(),
-            current_state,
-        )
-        raise SkipHandler()
     logger.info(
         "[AddUser:get_id] pid=%s incoming %s",
         os.getpid(),
@@ -244,7 +231,7 @@ async def handler(message: types.Message, state: FSMContext):
     await state.set_state('get_name')
 
 
-@dp.message_handler(content_types=types.ContentType.TEXT, state='get_name')
+@dp.message_handler(content_types=types.ContentType.ANY, state='get_name')
 async def handler(message: types.Message, state: FSMContext):
     data = await state.get_data()
     user_id = data.get('user_id')
