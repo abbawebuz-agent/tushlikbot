@@ -54,7 +54,10 @@ def webhook(request, secret: str):
         fsm_state,
     )
 
-    async_to_sync(dp.process_update)(update)
+    try:
+        async_to_sync(dp.process_update)(update)
+    except Exception:
+        logger.exception("dp.process_update failed")
 
     return JsonResponse({"status": "ok"})
 

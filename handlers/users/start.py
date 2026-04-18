@@ -191,13 +191,18 @@ async def handler(message: types.Message, state: FSMContext):
         logger.exception("[AddUser:entry] failed to read state")
 
 
-@dp.message_handler(content_types=types.ContentType.TEXT, state='get_id')
+@dp.message_handler(content_types=types.ContentType.ANY, state='get_id')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
     logger.info(
         "[AddUser:get_id] pid=%s incoming %s",
         os.getpid(),
-        {"from_user_id": message.from_user.id, "chat_id": message.chat.id, "text": message.text},
+        {
+            "from_user_id": message.from_user.id,
+            "chat_id": message.chat.id,
+            "content_type": message.content_type,
+            "text": message.text,
+        },
     )
     uid, err = parse_telegram_user_id_input(message.text)
     logger.info("[AddUser:get_id] pid=%s parsed %s", os.getpid(), {"uid": uid, "err": err})
