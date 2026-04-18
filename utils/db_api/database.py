@@ -39,7 +39,7 @@ def get_employee(user_id, organization_id: Optional[int] = None):
 
 
 @sync_to_async
-def add_employee(user_id, full_name, organization_id: Optional[int] = None):
+def add_employee(user_id: Optional[int], full_name, organization_id: Optional[int] = None):
     try:
         emp = Employee.objects.create(user_id=user_id, name=full_name)
         # Добавляем сотрудника во все существующие организации

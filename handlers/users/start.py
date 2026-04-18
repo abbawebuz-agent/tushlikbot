@@ -41,6 +41,28 @@ LEGACY_CHANNEL_ID = config.CHANNEL_ID
 LEGACY_UZOMAN_CHANNEL_ID = config.UZOMAN_CHANNEL_ID
 
 
+def parse_telegram_user_id_input(text: str):
+    """
+    Возвращает (user_id | None, error_message | None).
+    None user_id означает: сотрудник ещё не заходил в бота, в БД сохраняется только имя.
+    """
+    s = (text or "").strip()
+    if not s:
+        return None, None
+    low = s.lower().replace("ʻ", "'")
+    if low in ("-", "—", "yo'q", "yoq", "нет", "no", "none", "0"):
+        return None, None
+    if not s.isdigit():
+        return None, (
+            "❌ User ID faqat raqam bo‘lishi kerak. "
+            "Agar xodim hali botdan foydalanmagan bo‘lsa, `-` yoki `yoq` yozing."
+        )
+    uid = int(s)
+    if uid <= 0:
+        return None, "❌ User ID musbat bo‘lishi kerak."
+    return uid, None
+
+
 @dp.message_handler(commands=["start"])
 async def handler(message: types.Message):
     args = (message.get_args() or "").strip()
@@ -160,15 +182,23 @@ async def handler(message: types.Message, state: FSMContext):
 @dp.message_handler(lambda message: message.text in ['Add user'], state='*')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
-    await message.answer('Xodim user_id sini jo\'nating', reply_markup=markup)
+    await message.answer(
+        "Xodimning Telegram user_id raqamini yuboring.\n\n"
+        "Agar xodim hali hech qachon bu botdan foydalanmagan bo‘lsa, "
+        "`-` yoki `yoq` yozing — faqat ism saqlanadi (keyinroq user_id qo‘shish mumkin).",
+        reply_markup=markup,
+    )
     await state.set_state('get_id')
 
 
 @dp.message_handler(content_types=types.ContentType.TEXT, state='get_id')
 async def handler(message: types.Message, state: FSMContext):
-    data = message.text
     markup = await cancel()
-    await state.update_data(user_id=data)
+    uid, err = parse_telegram_user_id_input(message.text)
+    if err:
+        await message.answer(err, reply_markup=markup)
+        return
+    await state.update_data(user_id=uid)
     await message.answer('Xodim to\'liq ismini kiriting', reply_markup=markup)
     await state.set_state('get_name')
 
@@ -176,7 +206,7 @@ async def handler(message: types.Message, state: FSMContext):
 @dp.message_handler(content_types=types.ContentType.TEXT, state='get_name')
 async def handler(message: types.Message, state: FSMContext):
     data = await state.get_data()
-    user_id = data['user_id']
+    user_id = data.get('user_id')
     admin = await get_employee(message.from_user.id)
     organization_id = admin.active_organization_id if admin is not None else None
     if organization_id is None:
