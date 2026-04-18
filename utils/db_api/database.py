@@ -23,6 +23,11 @@ def get_default_organization() -> Optional[Organization]:
 
 
 @sync_to_async
+def get_all_organizations() -> List[Organization]:
+    return list(Organization.objects.order_by("name", "id").all())
+
+
+@sync_to_async
 def get_employee(user_id, organization_id: Optional[int] = None):
     try:
         qs = Employee.objects.filter(user_id=user_id)

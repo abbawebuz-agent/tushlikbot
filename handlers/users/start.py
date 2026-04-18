@@ -1,3 +1,5 @@
+from collections import Counter
+
 from aiogram import types
 from aiogram.types import ReplyKeyboardRemove
 from aiogram.dispatcher import FSMContext
@@ -6,6 +8,34 @@ from keyboards.inline.menu_button import *
 import pandas as pd
 from utils.db_api.database import *
 from data import config
+
+
+def _organization_column_labels(organizations: list) -> list:
+    bases = [(o.name or "").strip() or o.start_code for o in organizations]
+    cnt = Counter(bases)
+    labels = []
+    for org, base in zip(organizations, bases):
+        if cnt[base] > 1:
+            labels.append(f"{base} ({org.id})")
+        else:
+            labels.append(base)
+    return labels
+
+
+def build_employee_org_coupon_df(emps, cupons, organizations: list, period_label):
+    labels = _organization_column_labels(organizations)
+    rows = []
+    for emp in emps:
+        row = {"Sana": period_label, "Xodim": emp.name or ""}
+        for org, label in zip(organizations, labels):
+            n = sum(
+                1
+                for c in cupons
+                if c.user_id == emp.user_id and c.organization_id == org.id
+            )
+            row[label] = n
+        rows.append(row)
+    return pd.DataFrame(rows)
 
 LEGACY_CHANNEL_ID = config.CHANNEL_ID
 LEGACY_UZOMAN_CHANNEL_ID = config.UZOMAN_CHANNEL_ID
@@ -165,20 +195,10 @@ async def handler(message: types.Message, state: FSMContext):
     if organization_id is None:
         await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
         return
-    cupons = await list_today(organization_id=organization_id)
+    cupons = await list_today(organization_id=None)
     emps = await get_employees(organization_id=organization_id)
-    names = []
-    counts = []
-    for emp in emps:
-        count = 0
-        for cps in cupons:
-            if emp.user_id == cps.user_id:
-                count += 1
-        names.append(emp.name)
-        counts.append(count)
-    df = pd.DataFrame({'Sana': date.today(),
-                       'Xodim': names,
-                       'Soni': counts})
+    orgs = await get_all_organizations()
+    df = build_employee_org_coupon_df(emps, cupons, orgs, date.today())
     df.to_excel('./xisobot.xlsx')
 
     doc = open('./xisobot.xlsx', 'rb')
@@ -192,20 +212,15 @@ async def handler(message: types.Message, state: FSMContext):
     if organization_id is None:
         await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
         return
-    cupons = await list_this_month(organization_id=organization_id)
+    cupons = await list_this_month(organization_id=None)
     emps = await get_employees(organization_id=organization_id)
-    names = []
-    counts = []
-    for emp in emps:
-        count = 0
-        for cps in cupons:
-            if emp.user_id == cps.user_id:
-                count += 1
-        names.append(emp.name)
-        counts.append(count)
-    df = pd.DataFrame({'Sana': f"{date.today().year}/{date.today().month}",
-                       'Xodim': names,
-                       'Soni': counts})
+    orgs = await get_all_organizations()
+    df = build_employee_org_coupon_df(
+        emps,
+        cupons,
+        orgs,
+        f"{date.today().year}/{date.today().month}",
+    )
     df.to_excel('./xisobot.xlsx')
 
     doc = open('./xisobot.xlsx', 'rb')
@@ -220,7 +235,7 @@ async def handler(message: types.Message, state: FSMContext):
     if organization_id is None:
         await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
         return
-    orders = await get_cupons(organization_id=organization_id)
+    orders = await get_cupons(organization_id=None)
     for order in orders:
         years.append(order.date.year)
     years = list(dict.fromkeys(years))
@@ -239,7 +254,7 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
         organization_id = admin.active_organization_id if admin is not None else None
         if organization_id is None:
             return
-        orders = await get_cupons(organization_id=organization_id)
+        orders = await get_cupons(organization_id=None)
         for order in orders:
             if order.date.year == int(data):
                 date.append(order.date.month)
@@ -266,29 +281,20 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
         organization_id = admin.active_organization_id if admin is not None else None
         if organization_id is None:
             return
-        orders = await get_cupons(organization_id=organization_id)
+        orders = await get_cupons(organization_id=None)
         for order in orders:
             if order.date.year == int(state_data['year']) and order.date.month == int(data):
                 cupons.append(order)
         emps = await get_employees(organization_id=organization_id)
-        names = []
-        counts = []
-        for emp in emps:
-            count = 0
-            for cps in cupons:
-                if emp.user_id == cps.user_id:
-                    count += 1
-            names.append(emp.name)
-            counts.append(count)
         if not cupons:
             return
 
-        df = pd.DataFrame(
-            {
-                "Sana": f"{cupons[0].date.year}/{cupons[0].date.month}",
-                "Xodim": names,
-                "Soni": counts,
-            }
+        orgs = await get_all_organizations()
+        df = build_employee_org_coupon_df(
+            emps,
+            cupons,
+            orgs,
+            f"{cupons[0].date.year}/{cupons[0].date.month}",
         )
 
         xlsx_name = f'./xisobot_{organization_id or "legacy"}_{state_data["year"]}_{data}.xlsx'
@@ -305,9 +311,9 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
         organization_id = admin.active_organization_id if admin is not None else None
         if organization_id is None:
             return
-        orders = await get_cupons(organization_id=organization_id)
+        orders = await get_cupons(organization_id=None)
 
-        # Вернуться к выбору года для текущей организации
+        # Вернуться к выбору года (barcha tashkilotlar bo'yicha)
         years = list(dict.fromkeys([order.date.year for order in orders if order.date is not None]))
         markup = await year_keyboard(years)
         await call.message.edit_text(text='Kerakli yilni tanlang 👇', reply_markup=markup)
