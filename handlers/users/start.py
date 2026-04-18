@@ -185,6 +185,10 @@ async def handler(message: types.Message, state: FSMContext):
     )
     await message.answer("Xodim user_id sini jo'nating", reply_markup=markup)
     await state.set_state('get_id')
+    try:
+        logger.info("[AddUser:entry] pid=%s state_after_set=%s", os.getpid(), await state.get_state())
+    except Exception:
+        logger.exception("[AddUser:entry] failed to read state")
 
 
 @dp.message_handler(content_types=types.ContentType.TEXT, state='get_id')

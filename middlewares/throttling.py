@@ -1,10 +1,14 @@
 import asyncio
+import logging
+import os
 
 from aiogram import types, Dispatcher
 from aiogram.dispatcher import DEFAULT_RATE_LIMIT
 from aiogram.dispatcher.handler import CancelHandler, current_handler
 from aiogram.dispatcher.middlewares import BaseMiddleware
 from aiogram.utils.exceptions import Throttled
+
+logger = logging.getLogger(__name__)
 
 
 class ThrottlingMiddleware(BaseMiddleware):
@@ -29,10 +33,19 @@ class ThrottlingMiddleware(BaseMiddleware):
                     chat=message.chat.id,
                     user=message.from_user.id,
                 )
-                if await state.get_state():
+                current = await state.get_state()
+                logger.info(
+                    "[Throttling] pid=%s chat_id=%s user_id=%s text=%r fsm_state=%s",
+                    os.getpid(),
+                    message.chat.id,
+                    message.from_user.id,
+                    message.text,
+                    current,
+                )
+                if current:
                     return
             except Exception:
-                pass
+                logger.exception("[Throttling] failed to read fsm_state")
 
         handler = current_handler.get()
         dispatcher = Dispatcher.get_current()
@@ -45,6 +58,14 @@ class ThrottlingMiddleware(BaseMiddleware):
         try:
             await dispatcher.throttle(key, rate=limit)
         except Throttled as t:
+            logger.warning(
+                "[Throttling] pid=%s throttled key=%s chat_id=%s user_id=%s text=%r",
+                os.getpid(),
+                key,
+                message.chat.id,
+                getattr(message.from_user, "id", None),
+                message.text,
+            )
             await self.message_throttled(message, t)
             raise CancelHandler()
 
