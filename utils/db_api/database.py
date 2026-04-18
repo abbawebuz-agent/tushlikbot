@@ -41,6 +41,11 @@ def get_employee(user_id, organization_id: Optional[int] = None):
 @sync_to_async
 def add_employee(user_id: Optional[int], full_name, organization_id: Optional[int] = None):
     try:
+        if user_id is not None:
+            existing = Employee.objects.filter(user_id=user_id).first()
+            if existing is not None:
+                return existing
+
         emp = Employee.objects.create(user_id=user_id, name=full_name)
         # Добавляем сотрудника во все существующие организации
         org_ids = list(Organization.objects.values_list("id", flat=True))
