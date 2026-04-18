@@ -1,9 +1,12 @@
+import logging
 from datetime import date
 from typing import List, Optional
 
 from asgiref.sync import sync_to_async
 
 from backend.models import Employee, Cupon, Organization
+
+logger = logging.getLogger(__name__)
 
 
 @sync_to_async
@@ -45,11 +48,11 @@ def ensure_employee_stub(user_id: int, organization_id: Optional[int] = None):
     привязать к организациям как при регистрации нового.
     """
     try:
-        print("[DB:ensure_employee_stub] called", {"user_id": user_id, "organization_id": organization_id})
+        logger.info("[DB:ensure_employee_stub] called %s", {"user_id": user_id, "organization_id": organization_id})
         emp = Employee.objects.filter(user_id=user_id).first()
         if emp is not None:
-            print(
-                "[DB:ensure_employee_stub] existing",
+            logger.info(
+                "[DB:ensure_employee_stub] existing %s",
                 {"id": emp.id, "user_id": emp.user_id, "name": emp.name},
             )
             if organization_id is not None:
@@ -60,7 +63,7 @@ def ensure_employee_stub(user_id: int, organization_id: Optional[int] = None):
             return emp
 
         emp = Employee.objects.create(user_id=user_id, name=None)
-        print("[DB:ensure_employee_stub] created stub", {"id": emp.id, "user_id": emp.user_id})
+        logger.info("[DB:ensure_employee_stub] created stub %s", {"id": emp.id, "user_id": emp.user_id})
         org_ids = list(Organization.objects.values_list("id", flat=True))
         if org_ids:
             emp.organizations.add(*org_ids)
@@ -68,31 +71,31 @@ def ensure_employee_stub(user_id: int, organization_id: Optional[int] = None):
             emp.organizations.add(organization_id)
             emp.active_organization_id = organization_id
             emp.save(update_fields=["active_organization"])
-            print(
-                "[DB:ensure_employee_stub] set active organization",
+            logger.info(
+                "[DB:ensure_employee_stub] set active organization %s",
                 {"employee_id": emp.id, "organization_id": organization_id},
             )
         return emp
-    except Exception as exx:
-        print("[DB:ensure_employee_stub] exception", repr(exx))
+    except Exception:
+        logger.exception("[DB:ensure_employee_stub] failed")
         return None
 
 
 @sync_to_async
 def set_employee_name(user_id: int, full_name: str):
     try:
-        print("[DB:set_employee_name] called", {"user_id": user_id, "full_name": full_name})
+        logger.info("[DB:set_employee_name] called %s", {"user_id": user_id, "full_name": full_name})
         emp = Employee.objects.filter(user_id=user_id).first()
         if emp is None:
-            print("[DB:set_employee_name] employee not found")
+            logger.warning("[DB:set_employee_name] employee not found user_id=%s", user_id)
             return None
         name = (full_name or "").strip() or None
         emp.name = name
         emp.save(update_fields=["name"])
-        print("[DB:set_employee_name] updated", {"id": emp.id, "name": emp.name})
+        logger.info("[DB:set_employee_name] updated %s", {"id": emp.id, "name": emp.name})
         return emp
-    except Exception as exx:
-        print("[DB:set_employee_name] exception", repr(exx))
+    except Exception:
+        logger.exception("[DB:set_employee_name] failed")
         return None
 
 

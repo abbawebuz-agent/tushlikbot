@@ -30,6 +30,12 @@ def setup_django():
 if __name__ == '__main__':
     setup_django()
 
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        force=True,
+    )
+
     from aiogram.utils import executor
     from handlers import dp
 

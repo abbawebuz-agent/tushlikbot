@@ -19,6 +19,21 @@ class ThrottlingMiddleware(BaseMiddleware):
 
     # noinspection PyUnusedLocal
     async def on_process_message(self, message: types.Message, data: dict):
+        # Пока хендлер ещё не выбран, старый код использовал один ключ `*_message`
+        # на все сообщения чата → второе сообщение (например user_id после «Add user»)
+        # часто получало Throttled/CancelHandler и обработчик даже не вызывался (нет логов).
+        if message.from_user is not None:
+            dispatcher = Dispatcher.get_current()
+            try:
+                state = dispatcher.current_state(
+                    chat=message.chat.id,
+                    user=message.from_user.id,
+                )
+                if await state.get_state():
+                    return
+            except Exception:
+                pass
+
         handler = current_handler.get()
         dispatcher = Dispatcher.get_current()
         if handler:
@@ -26,7 +41,7 @@ class ThrottlingMiddleware(BaseMiddleware):
             key = getattr(handler, 'throttling_key', f"{self.prefix}_{handler.__name__}")
         else:
             limit = self.rate_limit
-            key = f"{self.prefix}_message"
+            key = f"{self.prefix}_message_{message.chat.id}"
         try:
             await dispatcher.throttle(key, rate=limit)
         except Throttled as t:
@@ -39,7 +54,7 @@ class ThrottlingMiddleware(BaseMiddleware):
         if handler:
             key = getattr(handler, 'throttling_key', f"{self.prefix}_{handler.__name__}")
         else:
-            key = f"{self.prefix}_message"
+            key = f"{self.prefix}_message_{message.chat.id}"
         delta = throttled.rate - throttled.delta
         if throttled.exceeded_count <= 2:
             await message.reply('Too many requests! ')
