@@ -5,6 +5,7 @@ import os
 from aiogram import types
 from aiogram.types import ReplyKeyboardRemove
 from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.handler import SkipHandler
 from loader import dp, bot
 from keyboards.inline.menu_button import *
 import pandas as pd
@@ -270,6 +271,7 @@ async def handler(message: types.Message, state: FSMContext):
     await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)
 
 
+
 @dp.message_handler(lambda message: message.text in ["Current list"], state='*')
 async def handler(message: types.Message, state: FSMContext):
     admin = await get_employee(message.from_user.id)
@@ -400,3 +402,26 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
         markup = await year_keyboard(years)
         await call.message.edit_text(text='Kerakli yilni tanlang 👇', reply_markup=markup)
         await state.set_state('get_year_')
+
+
+
+@dp.message_handler(content_types=types.ContentType.ANY, state="*")
+async def _debug_any_message(message: types.Message, state: FSMContext):
+    """
+    Debug helper: logs any incoming message and current FSM state.
+    Always passes update to next handlers.
+    """
+    try:
+        cur = await state.get_state()
+    except Exception:
+        cur = None
+    logger.info(
+        "[Debug:any_message] pid=%s chat_id=%s user_id=%s content_type=%s text=%r fsm_state=%s",
+        os.getpid(),
+        message.chat.id,
+        getattr(message.from_user, "id", None),
+        message.content_type,
+        message.text,
+        cur,
+    )
+    raise SkipHandler()
