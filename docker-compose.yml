@@ -20,6 +20,8 @@ services:
       - .env
     environment:
       WEB_PORT: "8000"
+      # FSM (MemoryStorage): один воркер, иначе шаги бота теряются между webhook-запросами
+      WEB_CONCURRENCY: "1"
       POSTGRES_HOST: "db"
       POSTGRES_PORT: "5432"
     volumes:

@@ -1,5 +1,6 @@
 # bot/views.py
 import json
+import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Update
@@ -12,6 +13,9 @@ from django.views.decorators.csrf import csrf_exempt
 from data import config
 from handlers import dp
 from .forms import LeadForm
+
+logger = logging.getLogger(__name__)
+
 
 @csrf_exempt
 def webhook(request, secret: str):
@@ -27,6 +31,8 @@ def webhook(request, secret: str):
 
     Bot.set_current(dp.bot)
     Dispatcher.set_current(dp)
+
+    logger.info("telegram webhook update_id=%s", update.update_id)
 
     async_to_sync(dp.process_update)(update)
 
