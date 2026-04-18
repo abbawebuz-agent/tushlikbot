@@ -5,6 +5,7 @@ import os
 from aiogram import types
 from aiogram.types import ReplyKeyboardRemove
 from aiogram.dispatcher import FSMContext
+from aiogram.dispatcher.handler import SkipHandler
 from loader import dp, bot
 from keyboards.inline.menu_button import *
 import pandas as pd
@@ -208,7 +209,7 @@ async def handler(message: types.Message, state: FSMContext):
             os.getpid(),
             current_state,
         )
-        return
+        raise SkipHandler()
     logger.info(
         "[AddUser:get_id] pid=%s incoming %s",
         os.getpid(),
