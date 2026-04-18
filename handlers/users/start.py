@@ -111,9 +111,7 @@ async def handler(message: types.Message):
             chat_id=report_chat_id,
             caption=f"Bu {soni} - talon",
         )
-        for i in cupons:
-            i.checked = True
-            i.save()
+        await mark_cupons_checked([i.id for i in cupons])
 
 
 @dp.message_handler(lambda message: message.text in ['kairat'], state='*')

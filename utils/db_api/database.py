@@ -104,7 +104,7 @@ def list_today(organization_id: Optional[int] = None) -> List[Cupon]:
     qs = Cupon.objects.filter(date=today)
     if organization_id is not None:
         qs = qs.filter(organization_id=organization_id)
-    return qs.all()
+    return list(qs)
     
     
 @sync_to_async
@@ -112,7 +112,7 @@ def get_employees(organization_id: Optional[int] = None) -> List[Employee]:
     qs = Employee.objects.all()
     if organization_id is not None:
         qs = qs.filter(organizations__id=organization_id)
-    return qs.distinct().all()
+    return list(qs.distinct())
     
     
 @sync_to_async
@@ -144,7 +144,7 @@ def get_cupons(organization_id: Optional[int] = None) -> List[Cupon]:
     qs = Cupon.objects.all()
     if organization_id is not None:
         qs = qs.filter(organization_id=organization_id)
-    return qs.all()
+    return list(qs)
 
 
 @sync_to_async
@@ -158,6 +158,13 @@ def not_checked(id, organization_id: Optional[int] = None):
         return list(qs)
     except:
         return None
+
+
+@sync_to_async
+def mark_cupons_checked(cupon_ids: List[int]) -> None:
+    if not cupon_ids:
+        return
+    Cupon.objects.filter(id__in=cupon_ids).update(checked=True)
 
 
 @sync_to_async
