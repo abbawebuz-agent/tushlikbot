@@ -191,9 +191,24 @@ async def handler(message: types.Message, state: FSMContext):
         logger.exception("[AddUser:entry] failed to read state")
 
 
-@dp.message_handler(content_types=types.ContentType.ANY, state='get_id')
+@dp.message_handler(content_types=types.ContentType.ANY, state='*')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
+    try:
+        current_state = await state.get_state()
+    except Exception:
+        current_state = None
+        logger.exception("[AddUser:get_id] pid=%s failed to read state", os.getpid())
+
+    # Fail-safe: sometimes state-filtered handlers don't match under webhook;
+    # handle `get_id` explicitly here.
+    if current_state != "get_id":
+        logger.info(
+            "[AddUser:get_id] pid=%s skipped because state=%s",
+            os.getpid(),
+            current_state,
+        )
+        return
     logger.info(
         "[AddUser:get_id] pid=%s incoming %s",
         os.getpid(),
