@@ -41,12 +41,21 @@ def get_employee(user_id, organization_id: Optional[int] = None):
 @sync_to_async
 def add_employee(user_id: Optional[int], full_name, organization_id: Optional[int] = None):
     try:
+        print(
+            "[DB:add_employee] called",
+            {"user_id": user_id, "full_name": full_name, "organization_id": organization_id},
+        )
         if user_id is not None:
             existing = Employee.objects.filter(user_id=user_id).first()
             if existing is not None:
+                print(
+                    "[DB:add_employee] existing employee found",
+                    {"id": existing.id, "user_id": existing.user_id, "name": existing.name},
+                )
                 return existing
 
         emp = Employee.objects.create(user_id=user_id, name=full_name)
+        print("[DB:add_employee] created employee", {"id": emp.id, "user_id": emp.user_id, "name": emp.name})
         # Добавляем сотрудника во все существующие организации
         org_ids = list(Organization.objects.values_list("id", flat=True))
         if org_ids:
@@ -57,9 +66,10 @@ def add_employee(user_id: Optional[int], full_name, organization_id: Optional[in
             emp.organizations.add(organization_id)
             emp.active_organization_id = organization_id
             emp.save(update_fields=["active_organization"])
+            print("[DB:add_employee] set active organization", {"employee_id": emp.id, "organization_id": organization_id})
         return emp
     except Exception as exx:
-        print(exx)
+        print("[DB:add_employee] exception", repr(exx))
         return None
 
 

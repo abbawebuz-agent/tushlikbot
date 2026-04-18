@@ -180,7 +180,12 @@ async def handler(message: types.Message, state: FSMContext):
 @dp.message_handler(content_types=types.ContentType.TEXT, state='get_id')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
+    print(
+        "[AddUser:get_id] incoming",
+        {"from_user_id": message.from_user.id, "text": message.text},
+    )
     uid, err = parse_telegram_user_id_input(message.text)
+    print("[AddUser:get_id] parsed", {"uid": uid, "err": err})
     if err:
         await message.answer(err, reply_markup=markup)
         return
@@ -195,10 +200,24 @@ async def handler(message: types.Message, state: FSMContext):
     user_id = data.get('user_id')
     admin = await get_employee(message.from_user.id)
     organization_id = admin.active_organization_id if admin is not None else None
+    print(
+        "[AddUser:get_name] incoming",
+        {
+            "from_user_id": message.from_user.id,
+            "name_text": message.text,
+            "target_user_id": user_id,
+            "admin_employee_id": getattr(admin, "id", None),
+            "organization_id": organization_id,
+        },
+    )
     if organization_id is None:
         await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
         return
-    await add_employee(user_id=user_id, full_name=message.text, organization_id=organization_id)
+    emp = await add_employee(user_id=user_id, full_name=message.text, organization_id=organization_id)
+    print(
+        "[AddUser:get_name] add_employee result",
+        {"emp_id": getattr(emp, "id", None), "emp_user_id": getattr(emp, "user_id", None)},
+    )
     await state.finish()
     markup = await menu_buutin()
     await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)
