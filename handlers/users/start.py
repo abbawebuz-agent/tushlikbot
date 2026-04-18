@@ -195,9 +195,16 @@ async def handler(message: types.Message, state: FSMContext):
         logger.exception("[AddUser:entry] failed to read state")
 
 
-@dp.message_handler(content_types=types.ContentType.ANY, state='get_id')
+@dp.message_handler(content_types=types.ContentType.ANY, state='*')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
+    try:
+        current_state = await state.get_state()
+    except Exception:
+        current_state = None
+        logger.exception("[AddUser:get_id] pid=%s failed to read state", os.getpid())
+    if current_state != "get_id":
+        raise SkipHandler()
     logger.info(
         "[AddUser:get_id] pid=%s incoming %s",
         os.getpid(),
@@ -232,8 +239,16 @@ async def handler(message: types.Message, state: FSMContext):
     await state.set_state('get_name')
 
 
-@dp.message_handler(content_types=types.ContentType.ANY, state='get_name')
+@dp.message_handler(content_types=types.ContentType.ANY, state='*')
 async def handler(message: types.Message, state: FSMContext):
+    try:
+        current_state = await state.get_state()
+    except Exception:
+        current_state = None
+        logger.exception("[AddUser:get_name] pid=%s failed to read state", os.getpid())
+    if current_state != "get_name":
+        raise SkipHandler()
+
     data = await state.get_data()
     user_id = data.get('user_id')
     admin = await get_employee(message.from_user.id)
