@@ -1,7 +1,38 @@
 from collections import Counter
 
 from aiogram import types
- 
+from aiogram.types import ReplyKeyboardRemove
+from aiogram.dispatcher import FSMContext
+from loader import dp, bot
+from keyboards.inline.menu_button import *
+import pandas as pd
+from utils.db_api.database import *
+from data import config
+
+
+def _organization_column_labels(organizations: list) -> list:
+    bases = [(o.name or "").strip() or o.start_code for o in organizations]
+    cnt = Counter(bases)
+    labels = []
+    for org, base in zip(organizations, bases):
+        if cnt[base] > 1:
+            labels.append(f"{base} ({org.id})")
+        else:
+            labels.append(base)
+    return labels
+
+
+def build_employee_org_coupon_df(emps, cupons, organizations: list, period_label):
+    labels = _organization_column_labels(organizations)
+    rows = []
+    for emp in emps:
+        row = {"Sana": period_label, "Xodim": emp.name or ""}
+        for org, label in zip(organizations, labels):
+            n = sum(
+                1
+                for c in cupons
+                if c.user_id == emp.user_id and c.organization_id == org.id
+            )
             row[label] = n
         rows.append(row)
     return pd.DataFrame(rows)
@@ -12,7 +43,9 @@ LEGACY_UZOMAN_CHANNEL_ID = config.UZOMAN_CHANNEL_ID
 
 def parse_telegram_user_id_input(text: str):
     """Возвращает (user_id, error_message | None)."""
-    s = (text or "").strip()😭
+    s = (text or "").strip()
+    if not s:
+        return None, "❌ User ID kiriting."
     if not s.isdigit():
         return None, "❌ User ID faqat raqam bo‘lishi kerak."
     uid = int(s)

@@ -41,7 +41,7 @@ def get_employee(user_id, organization_id: Optional[int] = None):
 @sync_to_async
 def add_employee(user_id: Optional[int], full_name, organization_id: Optional[int] = None):
     try:
-        pm,nej≈ªª//////you =05rint(
+        print(
             "[DB:add_employee] called",
             {"user_id": user_id, "full_name": full_name, "organization_id": organization_id},
         )
