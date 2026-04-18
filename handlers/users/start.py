@@ -1,5 +1,6 @@
 from collections import Counter
 import logging
+import os
 
 from aiogram import types
 from aiogram.types import ReplyKeyboardRemove
@@ -176,6 +177,12 @@ async def handler(message: types.Message, state: FSMContext):
 @dp.message_handler(lambda message: message.text in ['Add user'], state='*')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
+    logger.info(
+        "[AddUser:entry] pid=%s from_user_id=%s chat_id=%s",
+        os.getpid(),
+        message.from_user.id,
+        message.chat.id,
+    )
     await message.answer("Xodim user_id sini jo'nating", reply_markup=markup)
     await state.set_state('get_id')
 
@@ -183,9 +190,13 @@ async def handler(message: types.Message, state: FSMContext):
 @dp.message_handler(content_types=types.ContentType.TEXT, state='get_id')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
-    logger.info("[AddUser:get_id] incoming %s", {"from_user_id": message.from_user.id, "text": message.text})
+    logger.info(
+        "[AddUser:get_id] pid=%s incoming %s",
+        os.getpid(),
+        {"from_user_id": message.from_user.id, "chat_id": message.chat.id, "text": message.text},
+    )
     uid, err = parse_telegram_user_id_input(message.text)
-    logger.info("[AddUser:get_id] parsed %s", {"uid": uid, "err": err})
+    logger.info("[AddUser:get_id] pid=%s parsed %s", os.getpid(), {"uid": uid, "err": err})
     if err:
         await message.answer(err, reply_markup=markup)
         return
@@ -196,7 +207,8 @@ async def handler(message: types.Message, state: FSMContext):
         return
     emp = await ensure_employee_stub(user_id=uid, organization_id=organization_id)
     logger.info(
-        "[AddUser:get_id] ensure_employee_stub %s",
+        "[AddUser:get_id] pid=%s ensure_employee_stub %s",
+        os.getpid(),
         {"emp_id": getattr(emp, "id", None), "emp_user_id": getattr(emp, "user_id", None)},
     )
     if emp is None:
@@ -214,9 +226,11 @@ async def handler(message: types.Message, state: FSMContext):
     admin = await get_employee(message.from_user.id)
     organization_id = admin.active_organization_id if admin is not None else None
     logger.info(
-        "[AddUser:get_name] incoming %s",
+        "[AddUser:get_name] pid=%s incoming %s",
+        os.getpid(),
         {
             "from_user_id": message.from_user.id,
+            "chat_id": message.chat.id,
             "name_text": message.text,
             "target_user_id": user_id,
             "admin_employee_id": getattr(admin, "id", None),
@@ -232,7 +246,8 @@ async def handler(message: types.Message, state: FSMContext):
         return
     emp = await set_employee_name(user_id=user_id, full_name=message.text)
     logger.info(
-        "[AddUser:get_name] set_employee_name result %s",
+        "[AddUser:get_name] pid=%s set_employee_name result %s",
+        os.getpid(),
         {"emp_id": getattr(emp, "id", None), "emp_user_id": getattr(emp, "user_id", None)},
     )
     if emp is None:

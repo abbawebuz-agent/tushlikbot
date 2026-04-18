@@ -1,6 +1,7 @@
 # bot/views.py
 import json
 import logging
+import os
 
 from aiogram import Bot, Dispatcher
 from aiogram.types import Update
@@ -32,7 +33,17 @@ def webhook(request, secret: str):
     Bot.set_current(dp.bot)
     Dispatcher.set_current(dp)
 
-    logger.info("telegram webhook update_id=%s", update.update_id)
+    chat_id = getattr(getattr(update.message, "chat", None), "id", None) if update.message else None
+    user_id = getattr(getattr(update.message, "from_user", None), "id", None) if update.message else None
+    text = getattr(update.message, "text", None) if update.message else None
+    logger.info(
+        "telegram webhook pid=%s update_id=%s chat_id=%s user_id=%s text=%r",
+        os.getpid(),
+        update.update_id,
+        chat_id,
+        user_id,
+        text,
+    )
 
     async_to_sync(dp.process_update)(update)
 
