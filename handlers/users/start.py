@@ -189,6 +189,19 @@ async def handler(message: types.Message, state: FSMContext):
     if err:
         await message.answer(err, reply_markup=markup)
         return
+    admin = await get_employee(message.from_user.id)
+    organization_id = admin.active_organization_id if admin is not None else None
+    if organization_id is None:
+        await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
+        return
+    emp = await ensure_employee_stub(user_id=uid, organization_id=organization_id)
+    print(
+        "[AddUser:get_id] ensure_employee_stub",
+        {"emp_id": getattr(emp, "id", None), "emp_user_id": getattr(emp, "user_id", None)},
+    )
+    if emp is None:
+        await message.answer('❌ Bazada saqlab bo\'lmadi. Keyinroq qayta urinib ko\'ring.', reply_markup=markup)
+        return
     await state.update_data(user_id=uid)
     await message.answer('Xodim to\'liq ismini kiriting', reply_markup=markup)
     await state.set_state('get_name')
@@ -213,11 +226,18 @@ async def handler(message: types.Message, state: FSMContext):
     if organization_id is None:
         await message.answer('❌ Avval o\'z tashkilotingiz QR-kodi bilan kirib oling.')
         return
-    emp = await add_employee(user_id=user_id, full_name=message.text, organization_id=organization_id)
+    if user_id is None:
+        await message.answer('❌ Qayta urinib ko\'ring: avval user_id yuboring.', reply_markup=await cancel())
+        await state.finish()
+        return
+    emp = await set_employee_name(user_id=user_id, full_name=message.text)
     print(
-        "[AddUser:get_name] add_employee result",
+        "[AddUser:get_name] set_employee_name result",
         {"emp_id": getattr(emp, "id", None), "emp_user_id": getattr(emp, "user_id", None)},
     )
+    if emp is None:
+        await message.answer('❌ Ismni saqlab bo\'lmadi.', reply_markup=await cancel())
+        return
     await state.finish()
     markup = await menu_buutin()
     await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)

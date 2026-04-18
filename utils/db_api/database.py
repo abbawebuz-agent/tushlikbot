@@ -39,37 +39,60 @@ def get_employee(user_id, organization_id: Optional[int] = None):
 
 
 @sync_to_async
-def add_employee(user_id: Optional[int], full_name, organization_id: Optional[int] = None):
+def ensure_employee_stub(user_id: int, organization_id: Optional[int] = None):
+    """
+    По Telegram user_id: найти сотрудника или создать без ФИО (name пустой),
+    привязать к организациям как при регистрации нового.
+    """
     try:
-        print(
-            "[DB:add_employee] called",
-            {"user_id": user_id, "full_name": full_name, "organization_id": organization_id},
-        )
-        if user_id is not None:
-            existing = Employee.objects.filter(user_id=user_id).first()
-            if existing is not None:
-                print(
-                    "[DB:add_employee] existing employee found",
-                    {"id": existing.id, "user_id": existing.user_id, "name": existing.name},
-                )
-                return existing
+        print("[DB:ensure_employee_stub] called", {"user_id": user_id, "organization_id": organization_id})
+        emp = Employee.objects.filter(user_id=user_id).first()
+        if emp is not None:
+            print(
+                "[DB:ensure_employee_stub] existing",
+                {"id": emp.id, "user_id": emp.user_id, "name": emp.name},
+            )
+            if organization_id is not None:
+                emp.organizations.add(organization_id)
+                if emp.active_organization_id is None:
+                    emp.active_organization_id = organization_id
+                    emp.save(update_fields=["active_organization"])
+            return emp
 
-        emp = Employee.objects.create(user_id=user_id, name=full_name)
-        print("[DB:add_employee] created employee", {"id": emp.id, "user_id": emp.user_id, "name": emp.name})
-        # Добавляем сотрудника во все существующие организации
+        emp = Employee.objects.create(user_id=user_id, name=None)
+        print("[DB:ensure_employee_stub] created stub", {"id": emp.id, "user_id": emp.user_id})
         org_ids = list(Organization.objects.values_list("id", flat=True))
         if org_ids:
             emp.organizations.add(*org_ids)
-
-        # И выставляем "активную" организацию, если она задана
         if organization_id is not None:
             emp.organizations.add(organization_id)
             emp.active_organization_id = organization_id
             emp.save(update_fields=["active_organization"])
-            print("[DB:add_employee] set active organization", {"employee_id": emp.id, "organization_id": organization_id})
+            print(
+                "[DB:ensure_employee_stub] set active organization",
+                {"employee_id": emp.id, "organization_id": organization_id},
+            )
         return emp
     except Exception as exx:
-        print("[DB:add_employee] exception", repr(exx))
+        print("[DB:ensure_employee_stub] exception", repr(exx))
+        return None
+
+
+@sync_to_async
+def set_employee_name(user_id: int, full_name: str):
+    try:
+        print("[DB:set_employee_name] called", {"user_id": user_id, "full_name": full_name})
+        emp = Employee.objects.filter(user_id=user_id).first()
+        if emp is None:
+            print("[DB:set_employee_name] employee not found")
+            return None
+        name = (full_name or "").strip() or None
+        emp.name = name
+        emp.save(update_fields=["name"])
+        print("[DB:set_employee_name] updated", {"id": emp.id, "name": emp.name})
+        return emp
+    except Exception as exx:
+        print("[DB:set_employee_name] exception", repr(exx))
         return None
 
 
