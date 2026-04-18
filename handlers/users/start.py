@@ -42,21 +42,12 @@ LEGACY_UZOMAN_CHANNEL_ID = config.UZOMAN_CHANNEL_ID
 
 
 def parse_telegram_user_id_input(text: str):
-    """
-    Возвращает (user_id | None, error_message | None).
-    None user_id означает: сотрудник ещё не заходил в бота, в БД сохраняется только имя.
-    """
+    """Возвращает (user_id, error_message | None)."""
     s = (text or "").strip()
     if not s:
-        return None, None
-    low = s.lower().replace("ʻ", "'")
-    if low in ("-", "—", "yo'q", "yoq", "нет", "no", "none", "0"):
-        return None, None
+        return None, "❌ User ID kiriting."
     if not s.isdigit():
-        return None, (
-            "❌ User ID faqat raqam bo‘lishi kerak. "
-            "Agar xodim hali botdan foydalanmagan bo‘lsa, `-` yoki `yoq` yozing."
-        )
+        return None, "❌ User ID faqat raqam bo‘lishi kerak."
     uid = int(s)
     if uid <= 0:
         return None, "❌ User ID musbat bo‘lishi kerak."
@@ -182,12 +173,7 @@ async def handler(message: types.Message, state: FSMContext):
 @dp.message_handler(lambda message: message.text in ['Add user'], state='*')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
-    await message.answer(
-        "Xodimning Telegram user_id raqamini yuboring.\n\n"
-        "Agar xodim hali hech qachon bu botdan foydalanmagan bo‘lsa, "
-        "`-` yoki `yoq` yozing — faqat ism saqlanadi (keyinroq user_id qo‘shish mumkin).",
-        reply_markup=markup,
-    )
+    await message.answer("Xodim user_id sini jo'nating", reply_markup=markup)
     await state.set_state('get_id')
 
 
