@@ -36,13 +36,22 @@ def webhook(request, secret: str):
     chat_id = getattr(getattr(update.message, "chat", None), "id", None) if update.message else None
     user_id = getattr(getattr(update.message, "from_user", None), "id", None) if update.message else None
     text = getattr(update.message, "text", None) if update.message else None
+
+    fsm_state = None
+    if chat_id is not None and user_id is not None:
+        try:
+            ctx = dp.current_state(chat=chat_id, user=user_id)
+            fsm_state = async_to_sync(ctx.get_state)()
+        except Exception:
+            logger.exception("failed to read fsm_state in webhook")
     logger.info(
-        "telegram webhook pid=%s update_id=%s chat_id=%s user_id=%s text=%r",
+        "telegram webhook pid=%s update_id=%s chat_id=%s user_id=%s text=%r fsm_state=%s",
         os.getpid(),
         update.update_id,
         chat_id,
         user_id,
         text,
+        fsm_state,
     )
 
     async_to_sync(dp.process_update)(update)
