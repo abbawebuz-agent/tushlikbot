@@ -170,7 +170,11 @@ if USE_S3_STATIC:
 
     # Public, cacheable, no signed URLs for static assets.
     AWS_QUERYSTRING_AUTH = False
-    AWS_DEFAULT_ACL = None
+    # Static must be publicly readable. By default upload objects with a
+    # public-read ACL. Set AWS_S3_DEFAULT_ACL="" if the provider has ACLs
+    # disabled and you grant public read via a bucket policy instead.
+    _acl = os.getenv("AWS_S3_DEFAULT_ACL", "public-read").strip()
+    AWS_DEFAULT_ACL = _acl or None
     AWS_S3_FILE_OVERWRITE = True
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
 
