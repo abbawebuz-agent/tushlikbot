@@ -17,6 +17,9 @@ services:
     depends_on:
       - db
     env_file:
+      # Все S3-переменные для статики (USE_S3_STATIC, AWS_*) читаются отсюда.
+      # entrypoint запускает `collectstatic`, поэтому при USE_S3_STATIC=true
+      # статика админки заливается прямо в S3-бакет на старте контейнера.
       - .env
     environment:
       WEB_PORT: "8000"
@@ -25,6 +28,8 @@ services:
       POSTGRES_HOST: "db"
       POSTGRES_PORT: "5432"
     volumes:
+      # static_data используется только при локальной раздаче статики (USE_S3_STATIC=false).
+      # При USE_S3_STATIC=true том можно не монтировать — статика уходит в S3.
       - static_data:/app/static
       - media_data:/app/media
 

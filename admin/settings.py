@@ -151,6 +151,66 @@ STATIC_ROOT = BASE_DIR / 'static'
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# --- Static files on S3-compatible storage (optional) ---
+# Enabled only when USE_S3_STATIC is truthy AND the required credentials are set.
+# When disabled, static files keep using the local STATIC_ROOT above.
+USE_S3_STATIC = os.getenv("USE_S3_STATIC", "").strip().lower() in ("1", "true", "yes", "on")
+
+if USE_S3_STATIC:
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
+    # Custom endpoint for S3-compatible providers (MinIO, Yandex, R2, VK Cloud, ...)
+    AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL") or None
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME") or None
+    # Optional CDN / public domain in front of the bucket (no scheme, e.g. "cdn.example.com")
+    AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN") or None
+    # addressing style: "virtual" (bucket.host) or "path" (host/bucket, common for MinIO)
+    AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE") or None
+
+    # Public, cacheable, no signed URLs for static assets.
+    AWS_QUERYSTRING_AUTH = False
+    AWS_DEFAULT_ACL = None
+    AWS_S3_FILE_OVERWRITE = True
+    AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
+
+    # Prefix inside the bucket where collectstatic uploads files.
+    STATIC_LOCATION = os.getenv("AWS_STATIC_LOCATION", "static").strip("/")
+
+    _s3_options = {
+        "bucket_name": AWS_STORAGE_BUCKET_NAME,
+        "location": STATIC_LOCATION,
+        "querystring_auth": AWS_QUERYSTRING_AUTH,
+        "default_acl": AWS_DEFAULT_ACL,
+        "file_overwrite": AWS_S3_FILE_OVERWRITE,
+        "object_parameters": AWS_S3_OBJECT_PARAMETERS,
+        "access_key": AWS_ACCESS_KEY_ID,
+        "secret_key": AWS_SECRET_ACCESS_KEY,
+        "endpoint_url": AWS_S3_ENDPOINT_URL,
+        "region_name": AWS_S3_REGION_NAME,
+        "custom_domain": AWS_S3_CUSTOM_DOMAIN,
+        "addressing_style": AWS_S3_ADDRESSING_STYLE,
+    }
+    # Drop unset keys so django-storages/boto3 fall back to their own defaults.
+    _s3_options = {k: v for k, v in _s3_options.items() if v is not None}
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "storages.backends.s3.S3Storage",
+            "OPTIONS": _s3_options,
+        },
+    }
+
+    # STATIC_URL is still required by Django; point it at the bucket/CDN so any
+    # code reading settings.STATIC_URL directly gets a correct base URL.
+    if AWS_S3_CUSTOM_DOMAIN:
+        STATIC_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{STATIC_LOCATION}/"
+    elif AWS_S3_ENDPOINT_URL:
+        STATIC_URL = f"{AWS_S3_ENDPOINT_URL.rstrip('/')}/{AWS_STORAGE_BUCKET_NAME}/{STATIC_LOCATION}/"
+
 DEFAULT_AUTO_FIELD = "django.db.models.AutoField"
 
 LOGGING = {
