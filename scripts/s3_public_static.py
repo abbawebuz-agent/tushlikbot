@@ -1,22 +1,22 @@
 """
 One-off: сделать статику в S3-совместимом бакете публично читаемой.
 
-Нужно для провайдеров вроде Tigris (Railway Object Storage), где бакет закрыт
-по умолчанию и объектного ACL public-read недостаточно — требуется bucket policy
-на анонимный s3:GetObject.
+Tigris (Railway Object Storage) НЕ поддерживает bucket policy (PutBucketPolicy
+возвращает NotImplemented). Публичный доступ включается объектным ACL
+public-read на каждом объекте. Этот скрипт проставляет public-read на все
+объекты под префиксом статики (AWS_STATIC_LOCATION/*).
 
-Читает те же переменные, что и Django-настройки (AWS_*), и ставит политику,
-разрешающую публичное чтение только префикса статики (AWS_STATIC_LOCATION/*).
+Читает те же переменные, что и Django-настройки (AWS_*).
 
-Запуск (внутри контейнера web, где есть boto3 и .env):
+Запуск (внутри контейнера web, где есть boto3 и переменные окружения):
     python scripts/s3_public_static.py
 """
 
-import json
 import os
 import sys
 
 import boto3
+from botocore.exceptions import ClientError
 
 
 def _clean(v):
@@ -29,7 +29,7 @@ def main():
     if not bucket:
         sys.exit("AWS_STORAGE_BUCKET_NAME is not set")
 
-    prefix = (os.getenv("AWS_STATIC_LOCATION", "static") or "static").strip("/")
+    prefix = (os.getenv("AWS_STATIC_LOCATION", "static") or "static").strip("/") + "/"
 
     session = boto3.session.Session(
         aws_access_key_id=_clean(os.getenv("AWS_ACCESS_KEY_ID")),
@@ -41,21 +41,27 @@ def main():
         endpoint_url=_clean(os.getenv("AWS_S3_ENDPOINT_URL")),
     )
 
-    policy = {
-        "Version": "2012-10-17",
-        "Statement": [
-            {
-                "Sid": "PublicReadStatic",
-                "Effect": "Allow",
-                "Principal": "*",
-                "Action": "s3:GetObject",
-                "Resource": f"arn:aws:s3:::{bucket}/{prefix}/*",
-            }
-        ],
-    }
+    paginator = s3.get_paginator("list_objects_v2")
+    total = 0
+    failed = 0
+    first_error = None
+    for page in paginator.paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            key = obj["Key"]
+            try:
+                s3.put_object_acl(Bucket=bucket, Key=key, ACL="public-read")
+                total += 1
+            except ClientError as e:
+                failed += 1
+                if first_error is None:
+                    first_error = f"{key}: {e}"
 
-    s3.put_bucket_policy(Bucket=bucket, Policy=json.dumps(policy))
-    print(f"OK: public-read policy applied to s3://{bucket}/{prefix}/*")
+    print(f"public-read applied: {total} object(s), failed: {failed}")
+    if first_error:
+        print(f"first error: {first_error}")
+        sys.exit(1)
+    if total == 0:
+        print(f"WARNING: no objects found under s3://{bucket}/{prefix}")
 
 
 if __name__ == "__main__":
