@@ -51,7 +51,11 @@ class ThrottlingMiddleware(BaseMiddleware):
         dispatcher = Dispatcher.get_current()
         if handler:
             limit = getattr(handler, 'throttling_rate_limit', self.rate_limit)
-            key = getattr(handler, 'throttling_key', f"{self.prefix}_{handler.__name__}")
+            # В этом проекте многие хендлеры буквально называются `handler`
+            # (одинаковое имя функции), поэтому ключ по handler.__name__
+            # склеивал их все в один общий лимит. id(handler) уникален
+            # для каждой конкретной функции-обработчика.
+            key = getattr(handler, 'throttling_key', f"{self.prefix}_{id(handler)}")
         else:
             limit = self.rate_limit
             key = f"{self.prefix}_message_{message.chat.id}"
@@ -73,7 +77,7 @@ class ThrottlingMiddleware(BaseMiddleware):
         handler = current_handler.get()
         dispatcher = Dispatcher.get_current()
         if handler:
-            key = getattr(handler, 'throttling_key', f"{self.prefix}_{handler.__name__}")
+            key = getattr(handler, 'throttling_key', f"{self.prefix}_{id(handler)}")
         else:
             key = f"{self.prefix}_message_{message.chat.id}"
         delta = throttled.rate - throttled.delta

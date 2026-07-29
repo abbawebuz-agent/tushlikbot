@@ -11,6 +11,7 @@ from keyboards.inline.menu_button import *
 import pandas as pd
 from utils.db_api.database import *
 from data import config
+from filters.admin_filter import IsAdmin
 
 logger = logging.getLogger(__name__)
 
@@ -162,20 +163,20 @@ async def handler(message: types.Message):
         await mark_cupons_checked([i.id for i in cupons])
 
 
-@dp.message_handler(lambda message: message.text in ['kairat'], state='*')
+@dp.message_handler(IsAdmin(), commands=["admin"], state='*')
 async def handler(message: types.Message):
     markup = await menu_buutin()
     await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)
 
 
-@dp.message_handler(lambda message: message.text in ['🔙 Bekor qilish'], state='*')
+@dp.message_handler(IsAdmin(), lambda message: message.text in ['🔙 Bekor qilish'], state='*')
 async def handler(message: types.Message, state: FSMContext):
     await state.finish()
     markup = await menu_buutin()
     await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)
 
 
-@dp.message_handler(lambda message: message.text in ['Add user'], state='*')
+@dp.message_handler(IsAdmin(), lambda message: message.text in ['Add user'], state='*')
 async def handler(message: types.Message, state: FSMContext):
     markup = await cancel()
     logger.info(
@@ -287,7 +288,7 @@ async def handler(message: types.Message, state: FSMContext):
 
 
 
-@dp.message_handler(lambda message: message.text in ["Current list"], state='*')
+@dp.message_handler(IsAdmin(), lambda message: message.text in ["Current list"], state='*')
 async def handler(message: types.Message, state: FSMContext):
     admin = await get_employee(message.from_user.id)
     organization_id = admin.active_organization_id if admin is not None else None
@@ -304,7 +305,7 @@ async def handler(message: types.Message, state: FSMContext):
     await message.answer_document(document=doc, caption=f"Bugun {len(cupons)}")
 
 
-@dp.message_handler(lambda message: message.text in ["Monthly list"], state='*')
+@dp.message_handler(IsAdmin(), lambda message: message.text in ["Monthly list"], state='*')
 async def handler(message: types.Message, state: FSMContext):
     admin = await get_employee(message.from_user.id)
     organization_id = admin.active_organization_id if admin is not None else None
@@ -326,7 +327,7 @@ async def handler(message: types.Message, state: FSMContext):
     await message.answer_document(document=doc, caption=f"Ushbu oy {len(cupons)} ta")
 
 
-@dp.message_handler(lambda message: message.text in ["Choose date"], state='*')
+@dp.message_handler(IsAdmin(), lambda message: message.text in ["Choose date"], state='*')
 async def handler(message: types.Message, state: FSMContext):
     years = []
     admin = await get_employee(message.from_user.id)
@@ -343,7 +344,7 @@ async def handler(message: types.Message, state: FSMContext):
     await state.set_state('get_year_')
 
 
-@dp.callback_query_handler(state="get_year_")
+@dp.callback_query_handler(IsAdmin(), state="get_year_")
 async def get_year(call: types.CallbackQuery, state: FSMContext):
     data = call.data
     if data != 'back_menu':
@@ -370,7 +371,7 @@ async def get_year(call: types.CallbackQuery, state: FSMContext):
         await bot.send_message(chat_id=call.from_user.id, text='Kerakli buyruqni tanlang 👇', reply_markup=markup)
 
 
-@dp.callback_query_handler(state="get_month_")
+@dp.callback_query_handler(IsAdmin(), state="get_month_")
 async def get_year(call: types.CallbackQuery, state: FSMContext):
     data = call.data
     if data != 'back_menu':

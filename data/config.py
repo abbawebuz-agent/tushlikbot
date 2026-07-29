@@ -15,6 +15,13 @@ PGPASSWORD = str(os.getenv("PGPASSWORD"))
 
 SLEEP_TIME = .3
 
+# Telegram user_id'лари (вергул билан ажратилган), кимга админ буйруқлари очиқ.
+# Масалан: ADMINS=123456789,987654321
+ADMINS = [
+    int(uid) for uid in os.getenv("ADMINS", "").split(",")
+    if uid.strip().isdigit()
+]
+
 
 ip = str(os.getenv("ip"))
 
