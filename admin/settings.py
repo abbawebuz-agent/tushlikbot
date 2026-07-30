@@ -162,18 +162,26 @@ if USE_S3_STATIC:
     AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME")
     # Custom endpoint for S3-compatible providers (MinIO, Yandex, R2, VK Cloud, ...)
     AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL") or None
-    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME") or None
-    # Optional CDN / public domain in front of the bucket (no scheme, e.g. "cdn.example.com")
-    AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN") or None
+    # Explicit region. Default "auto" (valid for Cloudflare R2) so boto3 does NOT
+    # fall back to the host's AWS_REGION/AWS_DEFAULT_REGION (Railway injects e.g.
+    # "sjc", which R2 rejects with InvalidRegionName). Set a real region for AWS/Yandex.
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME") or "auto"
+    # Optional CDN / public domain in front of the bucket (no scheme, e.g. "cdn.example.com").
+    # Be forgiving: strip an accidental scheme/trailing slash so we don't emit
+    # broken URLs like "https://https//pub-....r2.dev/...".
+    _custom_domain = (os.getenv("AWS_S3_CUSTOM_DOMAIN") or "").strip()
+    _custom_domain = _custom_domain.split("://", 1)[-1].strip("/")
+    AWS_S3_CUSTOM_DOMAIN = _custom_domain or None
     # addressing style: "virtual" (bucket.host) or "path" (host/bucket, common for MinIO)
     AWS_S3_ADDRESSING_STYLE = os.getenv("AWS_S3_ADDRESSING_STYLE") or None
 
     # Public, cacheable, no signed URLs for static assets.
     AWS_QUERYSTRING_AUTH = False
-    # Static must be publicly readable. By default upload objects with a
-    # public-read ACL. Set AWS_S3_DEFAULT_ACL="" if the provider has ACLs
-    # disabled and you grant public read via a bucket policy instead.
-    _acl = os.getenv("AWS_S3_DEFAULT_ACL", "public-read").strip()
+    # No object ACL by default: modern providers (Cloudflare R2, AWS with ACLs
+    # disabled) don't use ACLs — public read is granted at the bucket level
+    # (R2: public bucket + r2.dev/custom domain). Set AWS_S3_DEFAULT_ACL=public-read
+    # only for providers that require per-object ACLs (e.g. classic Tigris/MinIO).
+    _acl = os.getenv("AWS_S3_DEFAULT_ACL", "").strip()
     AWS_DEFAULT_ACL = _acl or None
     AWS_S3_FILE_OVERWRITE = True
     AWS_S3_OBJECT_PARAMETERS = {"CacheControl": "max-age=86400"}
