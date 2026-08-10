@@ -39,4 +39,7 @@ if __name__ == '__main__':
     from aiogram.utils import executor
     from handlers import dp
 
-    executor.start_polling(dp, on_startup=on_startup, skip_updates=True)
+    # skip_updates=False: bot o'chib qolgan paytda kelgan /start lar yo'qolmasin —
+    # qayta ishga tushganda navbatdagi kuponlar hisobga olinadi.
+    # Dublikat xavfi yo'q: add_coupon() kuniga 1 marta bilan cheklaydi.
+    executor.start_polling(dp, on_startup=on_startup, skip_updates=False)
