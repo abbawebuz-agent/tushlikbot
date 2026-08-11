@@ -1,15 +1,40 @@
+import functools
 import logging
 from datetime import date
 from typing import List, Optional
 
 from asgiref.sync import sync_to_async
+from django.db import close_old_connections
 
 from backend.models import Employee, Cupon, Organization
 
 logger = logging.getLogger(__name__)
 
 
-@sync_to_async
+def db_sync_to_async(func):
+    """
+    sync_to_async + Django ulanishlarini tozalash.
+
+    Django `close_old_connections` ni faqat HTTP request signallarida chaqiradi.
+    Botda request yo'q, shuning uchun bir marta ochilgan Postgres ulanishi
+    abadiy qayta ishlatiladi. Postgres restart bo'lsa (yoki ulanish uzilsa)
+    o'sha o'lik ulanish qoladi va HAR BIR so'rov xato beradi — bot esa
+    xatolarni yutib, «hodim topilmadi» / «2-marta foydalanmoqchisiz» deb
+    javob beradi. Har chaqiruvda ulanishni tekshirib/yopib turamiz.
+    """
+
+    @functools.wraps(func)
+    def _inner(*args, **kwargs):
+        close_old_connections()
+        try:
+            return func(*args, **kwargs)
+        finally:
+            close_old_connections()
+
+    return sync_to_async(_inner)
+
+
+@db_sync_to_async
 def get_organization_by_start_code(start_code: str) -> Optional[Organization]:
     try:
         return Organization.objects.filter(start_code=start_code).first()
@@ -17,7 +42,7 @@ def get_organization_by_start_code(start_code: str) -> Optional[Organization]:
         return None
 
 
-@sync_to_async
+@db_sync_to_async
 def get_default_organization() -> Optional[Organization]:
     try:
         return Organization.objects.filter(is_default=True).first() or Organization.objects.first()
@@ -25,23 +50,24 @@ def get_default_organization() -> Optional[Organization]:
         return None
 
 
-@sync_to_async
+@db_sync_to_async
 def get_all_organizations() -> List[Organization]:
     return list(Organization.objects.order_by("name", "id").all())
 
 
-@sync_to_async
+@db_sync_to_async
 def get_employee(user_id, organization_id: Optional[int] = None):
     try:
         qs = Employee.objects.filter(user_id=user_id)
         if organization_id is not None:
             qs = qs.filter(organizations__id=organization_id)
         return qs.distinct().first()
-    except:
+    except Exception:
+        logger.exception("[DB:get_employee] failed user_id=%s organization_id=%s", user_id, organization_id)
         return None
 
 
-@sync_to_async
+@db_sync_to_async
 def ensure_employee_stub(user_id: int, organization_id: Optional[int] = None):
     """
     По Telegram user_id: найти сотрудника или создать без ФИО (name пустой),
@@ -81,7 +107,7 @@ def ensure_employee_stub(user_id: int, organization_id: Optional[int] = None):
         return None
 
 
-@sync_to_async
+@db_sync_to_async
 def set_employee_name(user_id: int, full_name: str):
     try:
         logger.info("[DB:set_employee_name] called %s", {"user_id": user_id, "full_name": full_name})
@@ -99,7 +125,7 @@ def set_employee_name(user_id: int, full_name: str):
         return None
 
 
-@sync_to_async
+@db_sync_to_async
 def set_employee_active_organization(user_id: int, organization_id: Optional[int]):
     try:
         if organization_id is None:
@@ -115,7 +141,7 @@ def set_employee_active_organization(user_id: int, organization_id: Optional[int
         return None
 
 
-@sync_to_async
+@db_sync_to_async
 def add_coupon(user_id, organization_id: Optional[int] = None):
     if organization_id is not None:
         user = Employee.objects.filter(user_id=user_id, organizations__id=organization_id).distinct().first()
@@ -139,12 +165,14 @@ def add_coupon(user_id, organization_id: Optional[int] = None):
             else:
                 ticket = Cupon.objects.create(user_id=user_id, name=user.name)
             return ticket.id
-    except Exception as exx:
-        print(exx)
+    except Exception:
+        # print() stdout buferida qolib ketardi va journalctl'da ko'rinmasdi —
+        # DB xatosi jimgina «2-marta foydalanmoqchisiz» ga aylanardi.
+        logger.exception("[DB:add_coupon] failed user_id=%s organization_id=%s", user_id, organization_id)
         return None
 
     
-@sync_to_async
+@db_sync_to_async
 def list_today(organization_id: Optional[int] = None) -> List[Cupon]:
     today = date.today()
     qs = Cupon.objects.filter(date=today)
@@ -153,7 +181,7 @@ def list_today(organization_id: Optional[int] = None) -> List[Cupon]:
     return list(qs)
     
     
-@sync_to_async
+@db_sync_to_async
 def get_employees(organization_id: Optional[int] = None) -> List[Employee]:
     qs = Employee.objects.all()
     if organization_id is not None:
@@ -161,7 +189,7 @@ def get_employees(organization_id: Optional[int] = None) -> List[Employee]:
     return list(qs.distinct())
     
     
-@sync_to_async
+@db_sync_to_async
 def get_cupon_count(user_id, organization_id: Optional[int] = None):
     today = date.today()
 
@@ -171,7 +199,7 @@ def get_cupon_count(user_id, organization_id: Optional[int] = None):
     return len(qs.all())
 
  
-@sync_to_async
+@db_sync_to_async
 def list_this_month(organization_id: Optional[int] = None) -> List[Cupon]:
     month = date.today().month
     year = date.today().year
@@ -185,7 +213,7 @@ def list_this_month(organization_id: Optional[int] = None) -> List[Cupon]:
     return cps
 
 
-@sync_to_async
+@db_sync_to_async
 def get_cupons(organization_id: Optional[int] = None) -> List[Cupon]:
     qs = Cupon.objects.all()
     if organization_id is not None:
@@ -193,7 +221,7 @@ def get_cupons(organization_id: Optional[int] = None) -> List[Cupon]:
     return list(qs)
 
 
-@sync_to_async
+@db_sync_to_async
 def not_checked(id, organization_id: Optional[int] = None):
     try:
         qs = Cupon.objects.filter(checked=False)
@@ -206,14 +234,14 @@ def not_checked(id, organization_id: Optional[int] = None):
         return None
 
 
-@sync_to_async
+@db_sync_to_async
 def mark_cupons_checked(cupon_ids: List[int]) -> None:
     if not cupon_ids:
         return
     Cupon.objects.filter(id__in=cupon_ids).update(checked=True)
 
 
-@sync_to_async
+@db_sync_to_async
 def check_count(id, organization_id: Optional[int] = None):
     try:
         if id is None:
