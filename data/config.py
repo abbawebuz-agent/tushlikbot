@@ -22,6 +22,13 @@ ADMINS = [
     if uid.strip().isdigit()
 ]
 
+# Агар true бўлса — админ буйруқлари (/admin, «11» коди ва админ менюси) БАРЧА
+# фойдаланувчиларга очиқ. ADMINS рўйхати шунда эътиборга олинмайди.
+# Ёпиш учун .env да: ADMIN_OPEN_TO_ALL=false
+ADMIN_OPEN_TO_ALL = os.getenv("ADMIN_OPEN_TO_ALL", "true").strip().lower() in (
+    "1", "true", "yes", "on",
+)
+
 
 ip = str(os.getenv("ip"))
 

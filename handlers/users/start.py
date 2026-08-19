@@ -169,6 +169,22 @@ async def handler(message: types.Message):
     await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)
 
 
+# Быстрый вход в админ-меню по короткому коду «11».
+# Кому доступно — решает фильтр IsAdmin: при ADMIN_OPEN_TO_ALL=true (в .env)
+# меню открывается любому, кто напишет «11»; при false — только ADMINS.
+@dp.message_handler(IsAdmin(), lambda message: (message.text or "").strip() == '11', state='*')
+async def handler(message: types.Message, state: FSMContext):
+    await state.finish()
+    logger.info(
+        "[AdminMenu] kod=11 user_id=%s username=%s open_to_all=%s",
+        message.from_user.id,
+        message.from_user.username,
+        config.ADMIN_OPEN_TO_ALL,
+    )
+    markup = await menu_buutin()
+    await message.answer('Kerakli buyruqni tanlang', reply_markup=markup)
+
+
 @dp.message_handler(IsAdmin(), lambda message: message.text in ['🔙 Bekor qilish'], state='*')
 async def handler(message: types.Message, state: FSMContext):
     await state.finish()
